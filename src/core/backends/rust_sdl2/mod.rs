@@ -1,3 +1,9 @@
+mod cache_checker;
+mod font;
+mod math;
+mod texture_key;
+mod texture_wrapper;
+
 use std::{
     collections::BTreeMap,
     num::{NonZeroU16, NonZeroU32},
@@ -6,12 +12,6 @@ use std::{
     sync::Mutex,
     time::{Duration, Instant},
 };
-
-mod cache_checker;
-mod font;
-mod math;
-mod texture_key;
-mod texture_wrapper;
 
 use cache_checker::CacheMissChecker;
 use font::Font;
@@ -24,6 +24,7 @@ use sdl2::{
     rect::Rect,
     render::{Canvas, TextureCreator},
     rwops::RWops,
+    surface::Surface,
     sys::mixer::MIX_MAX_VOLUME,
     ttf::Sdl2TtfContext,
     video::{Window, WindowContext},
@@ -32,7 +33,7 @@ use sdl2::{
 use texture_key::TextureKey;
 use texture_wrapper::TextureWrapper;
 
-use crate::{Event, NonEmptyStr, System, TextureDestination};
+use crate::core::{color::Color, Event, NonEmptyStr, System, TextureDestination};
 
 /// there's only one sdl mixer music callback globally which accepts a function
 /// pointer. so there has to be a global state :(
@@ -120,13 +121,15 @@ pub struct Texture<'sys> {
     canvas: &'sys mut Canvas<Window>,
 }
 
-impl<'sys> crate::Texture<'sys> for Texture<'sys> {
-    fn copy<Dst>(&mut self, src: crate::TextureArea, dst: Dst) -> Result<(), String>
+impl<'sys> crate::core::Texture<'sys> for Texture<'sys> {
+    fn copy<Src, Dst>(&mut self, src: Src, dst: Dst) -> Result<(), String>
     where
+        Src: Into<Option<crate::core::TextureArea>>,
         Dst: Into<TextureDestination>,
     {
         let dst = dst.into();
-        let src = sdl2::rect::Rect::new(src.x, src.y, src.w.into(), src.h.into());
+        let src: Option<crate::core::TextureArea> = src.into();
+        let src = src.map(|src| sdl2::rect::Rect::new(src.x, src.y, src.w.into(), src.h.into()));
 
         let texture_attributes = match dst {
             TextureDestination::Int(.., texture_attributes)
@@ -227,10 +230,12 @@ pub struct TextureOwned<'sys> {
     canvas: &'sys mut Canvas<Window>,
 }
 
-impl<'sys> crate::Texture<'sys> for TextureOwned<'sys> {
-    fn copy<Dst>(&mut self, src: crate::TextureArea, dst: Dst) -> Result<(), String>
+impl<'sys> crate::core::Texture<'sys> for TextureOwned<'sys> {
+    fn copy<Src, Dst>(&mut self, src: Src, dst: Dst) -> Result<(), String>
     where
-        Dst: Into<TextureDestination> {
+        Src: Into<Option<crate::core::TextureArea>>,
+        Dst: Into<TextureDestination>,
+    {
         let mut texture_not_owned = Texture {
             txt: &mut self.txt,
             canvas: self.canvas,
@@ -257,7 +262,10 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
     where
         Self: 'system;
 
-    fn new(font_file_data: &'font_data [u8]) -> Result<Self, String> {
+    fn new(
+        size: Option<(&str, NonZeroU32, NonZeroU32)>,
+        font_file_data: &'font_data [u8],
+    ) -> Result<Self, String> {
         let sdl = sdl2::init()?;
         let video = sdl.video()?;
         let audio = sdl.audio()?;
@@ -269,11 +277,20 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         )?;
         sdl2::mixer::Music::hook_finished(music_finished_hook);
 
-        let window = video
-            .window("", 0, 0)
-            .fullscreen_desktop()
-            .build()
-            .map_err(|e| e.to_string())?;
+        let window = match size {
+            Some(size) => {
+                let mut ret = video.window(size.0, size.1.get(), size.2.get());
+                ret.resizable();
+                ret
+            },
+            None => {
+                let mut ret = video.window("", 0, 0);
+                ret.fullscreen_desktop();
+                ret
+            },
+        }
+        .build()
+        .map_err(|e| e.to_string())?;
 
         let canvas = window
             .into_canvas()
@@ -317,6 +334,35 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         })
     }
 
+    fn recreate_window(&mut self, size: Option<(&str, NonZeroU32, NonZeroU32)>) -> Result<(), String> {
+        // texture must be dropped first, before parent canvas / creator
+        self.texture_cache.clear();
+        self.texture_cache_health_checker.reset();
+
+        let window = match size {
+            Some(size) => self._video.window(size.0, size.1.get(), size.2.get()),
+            None => {
+                let mut ret = self._video.window("", 0, 0);
+                ret.fullscreen_desktop();
+                ret
+            },
+        }
+        .build()
+        .map_err(|e| e.to_string())?;
+
+        let canvas = window
+            .into_canvas()
+            .present_vsync()
+            .build()
+            .map_err(|e| e.to_string())?;
+        let creator = canvas.texture_creator();
+
+        // replacement order is super important here
+        self.creator = creator;
+        self.canvas = canvas;
+        Ok(())
+    }
+
     fn size(&self) -> Result<(NonZeroU32, NonZeroU32), String> {
         let raw = self.canvas.output_size()?;
         let width = NonZeroU32::new(raw.0).ok_or("canvas width zero")?;
@@ -345,8 +391,9 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         })
     }
 
-    fn clear(&mut self, color: sdl2::pixels::Color) -> Result<(), String> {
-        self.canvas.set_draw_color(color);
+    fn clear(&mut self, c: Color) -> Result<(), String> {
+        self.canvas
+            .set_draw_color(sdl2::pixels::Color::RGBA(c.r, c.g, c.b, c.a));
         self.canvas.clear();
         Ok(())
     }
@@ -444,8 +491,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
             Some(v) => v, // point size is available
             None => {
                 // must create font object for points size
-                let rwops =
-                    RWops::from_bytes(self.font_file_data).map_err(|e| e.to_string())?;
+                let rwops = RWops::from_bytes(self.font_file_data).map_err(|e| e.to_string())?;
                 let font = Font::new(&self.ttf_context, rwops, point_size.get())?;
                 self.loaded_fonts.insert(point_size, font);
                 // sanity check on discretization method
@@ -467,31 +513,33 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         })
     }
 
-    fn clip(&mut self, c: crate::ClippingRect) {
+    fn clip(&mut self, c: crate::core::ClippingArea) {
         self.canvas.set_clip_rect(match c {
-            crate::ClippingRect::Some(texture_area) => sdl2::render::ClippingRect::Some(Rect::new(
-                texture_area.x,
-                texture_area.y,
-                texture_area.w.get(),
-                texture_area.h.get(),
-            )),
-            crate::ClippingRect::Zero => sdl2::render::ClippingRect::Zero,
-            crate::ClippingRect::None => sdl2::render::ClippingRect::None,
+            crate::core::ClippingArea::Some(texture_area) => {
+                sdl2::render::ClippingRect::Some(Rect::new(
+                    texture_area.x,
+                    texture_area.y,
+                    texture_area.w.get(),
+                    texture_area.h.get(),
+                ))
+            }
+            crate::core::ClippingArea::Zero => sdl2::render::ClippingRect::Zero,
+            crate::core::ClippingArea::None => sdl2::render::ClippingRect::None,
         })
     }
 
-    fn get_clip(&mut self) -> crate::ClippingRect {
+    fn get_clip(&mut self) -> crate::core::ClippingArea {
         match self.canvas.clip_rect() {
             sdl2::render::ClippingRect::Some(rect) => {
-                crate::ClippingRect::Some(crate::TextureArea {
+                crate::core::ClippingArea::Some(crate::core::TextureArea {
                     x: rect.x,
                     y: rect.y,
                     w: rect.width().try_into().unwrap(),
                     h: rect.height().try_into().unwrap(),
                 })
             }
-            sdl2::render::ClippingRect::Zero => crate::ClippingRect::Zero,
-            sdl2::render::ClippingRect::None => crate::ClippingRect::None,
+            sdl2::render::ClippingRect::Zero => crate::core::ClippingArea::Zero,
+            sdl2::render::ClippingRect::None => crate::core::ClippingArea::None,
         }
     }
 
@@ -633,7 +681,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         }
     }
 
-    fn event_timeout(&mut self, timeout: Duration) -> Option<crate::Event> {
+    fn event_timeout(&mut self, timeout: Duration) -> Option<crate::core::Event> {
         let start_time = Instant::now();
         loop {
             let duration_since_start = Instant::now() - start_time;
@@ -705,6 +753,76 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
     fn get_music_volume(&self) -> f32 {
         sdl2::mixer::Music::get_volume() as f32 / MIX_MAX_VOLUME as f32
     }
+
+    fn debug_texture(&mut self) -> Result<Self::Texture<'_>, String> {
+        let texture_key = TextureKey::debug_key();
+
+        let txt = self.texture_cache.try_get_or_insert_mut_ref(
+            &texture_key,
+            || -> Result<TextureWrapper, String> {
+                self.texture_cache_health_checker.cache_miss_occurred();
+
+                // generate the debug texture
+
+                let mut surface =
+                    Surface::new(256, 256, sdl2::pixels::PixelFormatEnum::ARGB8888).unwrap();
+                surface
+                    .set_blend_mode(sdl2::render::BlendMode::None)
+                    .unwrap();
+                surface.with_lock_mut(|buffer| {
+                    for x in 0i32..256 {
+                        for y in 0i32..256 {
+                            let pixel_offset = (4 * (x + y * 256)) as usize;
+                            if x <= 3 || x >= 252 || y <= 3 || y >= 252 {
+                                let v = ((x / 4 + y / 4) % 2) as u8;
+                                buffer[pixel_offset] = v * 0xff;
+                                buffer[pixel_offset + 1] = v * 0xff;
+                                buffer[pixel_offset + 2] = v * 0xff;
+                                buffer[pixel_offset + 3] = 0xff;
+                            } else {
+                                buffer[pixel_offset] = ((y as f32 / 255.0) * 0xFF as f32) as u8;
+                                buffer[pixel_offset + 1] = ((x as f32 / 255.0) * 0xFF as f32) as u8;
+                                buffer[pixel_offset + 2] = 0xFF - buffer[pixel_offset + 1];
+                                buffer[pixel_offset + 3] = ((x * y) % 0xFF) as u8;
+                            }
+                        }
+                    }
+                });
+
+                self.creator
+                    .create_texture_from_surface(surface)
+                    .map(|mut txt| {
+                        // Nearest scale mode is the default for sdl2 (but not sdl3!)
+                        txt.set_blend_mode(sdl2::render::BlendMode::Blend);
+                        TextureWrapper(txt)
+                    })
+                    .map_err(|e| e.to_string())
+            },
+        )?;
+
+        Ok(Texture {
+            txt: &mut txt.0,
+            canvas: &mut self.canvas,
+        })
+    }
+
+    fn static_text_size(
+        &mut self,
+        _text: NonEmptyStr,
+        _point_size: NonZeroU16,
+        _wrap_width: Option<NonZeroU32>,
+    ) -> Result<(NonZeroU32, NonZeroU32), String> {
+        todo!()
+    }
+
+    fn dynamic_text_size(
+        &mut self,
+        _text: NonEmptyStr,
+        _point_size: NonZeroU16,
+        _wrap_width: Option<NonZeroU32>,
+    ) -> Result<(NonZeroU32, NonZeroU32), String> {
+        todo!()
+    }
 }
 
 fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
@@ -728,7 +846,7 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
                         }
                     }
                 };
-                return Some(Event::Window(crate::Window {
+                return Some(Event::Window(crate::core::event::Window {
                     width: i32_to_nonzero_u32(w),
                     height: i32_to_nonzero_u32(h),
                 }));
@@ -744,7 +862,9 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
                 None => None,
             };
             match keycode {
-                Some(key) => return Some(Event::Key(crate::KeyEvent { key, down: true })),
+                Some(key) => {
+                    return Some(Event::Key(crate::core::event::KeyEvent { key, down: true }))
+                }
                 None => {}
             }
         }
@@ -757,16 +877,21 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
                 None => None,
             };
             match keycode {
-                Some(key) => return Some(Event::Key(crate::KeyEvent { key, down: false })),
+                Some(key) => {
+                    return Some(Event::Key(crate::core::event::KeyEvent {
+                        key,
+                        down: false,
+                    }))
+                }
                 None => {}
             }
         }
         sdl2::event::Event::MouseMotion {
             mousestate, x, y, ..
         } => {
-            return Some(Event::Mouse(crate::MouseEvent {
-                x: x as u32,
-                y: y as u32,
+            return Some(Event::Mouse(crate::core::event::MouseEvent {
+                x,
+                y,
                 down: mousestate.left(),
                 changed: false,
             }))
@@ -778,9 +903,9 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
             ..
         } => {
             // if mouse_btn.
-            return Some(Event::Mouse(crate::MouseEvent {
-                x: x as u32,
-                y: y as u32,
+            return Some(Event::Mouse(crate::core::event::MouseEvent {
+                x,
+                y,
                 down: true,
                 changed: true,
             }));
@@ -791,9 +916,9 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
             y,
             ..
         } => {
-            return Some(Event::Mouse(crate::MouseEvent {
-                x: x as u32,
-                y: y as u32,
+            return Some(Event::Mouse(crate::core::event::MouseEvent {
+                x,
+                y,
                 down: false,
                 changed: true,
             }))
@@ -808,7 +933,7 @@ pub struct LoopingSoundHandle<'a> {
     path: &'a Path,
 }
 
-impl<'a> crate::LoopingSoundHandle<'a> for LoopingSoundHandle<'a> {
+impl<'a> crate::core::LoopingSoundHandle<'a> for LoopingSoundHandle<'a> {
     fn new(path: &'a Path) -> Self {
         Self {
             channel: None,

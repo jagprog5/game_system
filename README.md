@@ -1,4 +1,6 @@
-## Game System
+# Game System
+
+## Core
 
 "What's the simplest thing that gets the job done?"
 
@@ -11,10 +13,6 @@ This describes an interface which a 2D app can use to interact with the world. I
 
 Textures and audio are loaded and unloaded by the interface - it is managed by a cache. Just specify the path to the resource and don't worry about memory management! 
 
-## Development
+## UI
 
-vscode rust-analyzer has some issues because no features are enabled by default. Consider editing the `Cargo.toml` to:
-
-```
-default = [ "rust-sdl2" ]
-```
+A widget based user interface library ported to work the the core system interface.
