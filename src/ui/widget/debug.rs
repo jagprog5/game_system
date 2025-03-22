@@ -133,7 +133,7 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Debug {
         };
 
         if !self.clicked_this_frame {
-            let mut texture = sys_interface.debug_texture()?;
+            let mut texture = sys_interface.missing_texture()?;
             texture.copy(None, pos)?;
         } else {
             println!("debug rect at {:?} was clicked!", pos);

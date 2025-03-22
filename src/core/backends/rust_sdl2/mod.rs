@@ -257,10 +257,6 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         = Texture<'system>
     where
         Self: 'system;
-    type TextureOwned<'system>
-        = TextureOwned<'system>
-    where
-        Self: 'system;
 
     fn new(
         size: Option<(&str, NonZeroU32, NonZeroU32)>,
@@ -282,12 +278,12 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
                 let mut ret = video.window(size.0, size.1.get(), size.2.get());
                 ret.resizable();
                 ret
-            },
+            }
             None => {
                 let mut ret = video.window("", 0, 0);
                 ret.fullscreen_desktop();
                 ret
-            },
+            }
         }
         .build()
         .map_err(|e| e.to_string())?;
@@ -334,7 +330,10 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         })
     }
 
-    fn recreate_window(&mut self, size: Option<(&str, NonZeroU32, NonZeroU32)>) -> Result<(), String> {
+    fn recreate_window(
+        &mut self,
+        size: Option<(&str, NonZeroU32, NonZeroU32)>,
+    ) -> Result<(), String> {
         // texture must be dropped first, before parent canvas / creator
         self.texture_cache.clear();
         self.texture_cache_health_checker.reset();
@@ -345,7 +344,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
                 let mut ret = self._video.window("", 0, 0);
                 ret.fullscreen_desktop();
                 ret
-            },
+            }
         }
         .build()
         .map_err(|e| e.to_string())?;
@@ -400,6 +399,10 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
 
     fn present(&mut self) -> Result<(), String> {
         self.canvas.present();
+
+        // see text() for reason
+        let _ = self.missing_texture()?;
+
         let previous_n_frames_had_cache_misses = self.texture_cache_health_checker.frame_end();
         if previous_n_frames_had_cache_misses >= self.texture_cache_miss_threshold {
             self.texture_cache_miss_threshold *= 2;
@@ -414,7 +417,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         Ok(())
     }
 
-    fn static_text(
+    fn text(
         &mut self,
         text: NonEmptyStr,
         point_size: NonZeroU16,
@@ -439,13 +442,22 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         let txt = self.texture_cache.try_get_or_insert_mut_ref(
             &texture_key,
             || -> Result<TextureWrapper, String> {
+                // NO!
+                // self.texture_cache_health_checker.cache_miss_occurred();
+
                 // the thinking is as follows: if there is short lived text,
                 // such as from a frame counter (any of the properties change
                 // each frame), then this will cause the cache to keep growing
                 // forever given the current expansion rules (it gives cache
-                // miss each frame and so thrashing is assumed). so dynamic_text
-                // is used instead
-                self.texture_cache_health_checker.cache_miss_occurred();
+                // miss each frame and so thrashing is assumed). not having this
+                // here has the same overall effect, it's just checked when
+                // image textures are loaded instead (since the text will push
+                // things out of the cache all the same).
+
+                // there is one parasitic case, if the app only ever draws text
+                // and never draws textures at all, then the cache misses aren't
+                // registered. for safety this is prevented by loading the debug
+                // texture each frame in present()
 
                 // must recreate the texture as it is not in the cache.
                 let font = match self.loaded_fonts.get(&point_size) {
@@ -476,39 +488,6 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
 
         Ok(Texture {
             txt: &mut txt.0,
-            canvas: &mut self.canvas,
-        })
-    }
-
-    fn dynamic_text(
-        &mut self,
-        text: NonEmptyStr,
-        point_size: NonZeroU16,
-        wrap_width: Option<NonZeroU32>,
-    ) -> Result<TextureOwned<'_>, String> {
-        let point_size = capped_next_power_of_two(point_size);
-        let font = match self.loaded_fonts.get(&point_size) {
-            Some(v) => v, // point size is available
-            None => {
-                // must create font object for points size
-                let rwops = RWops::from_bytes(self.font_file_data).map_err(|e| e.to_string())?;
-                let font = Font::new(&self.ttf_context, rwops, point_size.get())?;
-                self.loaded_fonts.insert(point_size, font);
-                // sanity check on discretization method
-                debug_assert!(self.loaded_fonts.len() < 20);
-                self.loaded_fonts.get(&point_size).unwrap()
-            }
-        };
-
-        let surface = font.render(text.0, wrap_width)?;
-
-        let mut texture = self
-            .creator
-            .create_texture_from_surface(surface)
-            .map_err(|e| e.to_string())?;
-        texture.set_blend_mode(sdl2::render::BlendMode::Blend);
-        Ok(TextureOwned {
-            txt: texture,
             canvas: &mut self.canvas,
         })
     }
@@ -690,10 +669,14 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
             }
 
             let duration_remaining = timeout - duration_since_start;
+            let duration_remaining = duration_remaining.as_millis() as u32;
+            if duration_remaining == 0 {
+                return None; // just in case
+            }
 
             let event_in = self
                 .event_pump
-                .wait_event_timeout(duration_remaining.as_millis() as u32);
+                .wait_event_timeout(duration_remaining);
             match event_in {
                 Some(e) => {
                     let maybe_e = translate_sdl_event(e);
@@ -750,11 +733,11 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         sdl2::mixer::Music::set_volume((volume * MIX_MAX_VOLUME as f32).round() as i32);
     }
 
-    fn get_music_volume(&self) -> f32 {
+    fn music_volume(&self) -> f32 {
         sdl2::mixer::Music::get_volume() as f32 / MIX_MAX_VOLUME as f32
     }
 
-    fn debug_texture(&mut self) -> Result<Self::Texture<'_>, String> {
+    fn missing_texture(&mut self) -> Result<Self::Texture<'_>, String> {
         let texture_key = TextureKey::debug_key();
 
         let txt = self.texture_cache.try_get_or_insert_mut_ref(
@@ -765,28 +748,30 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
                 // generate the debug texture
 
                 let mut surface =
-                    Surface::new(256, 256, sdl2::pixels::PixelFormatEnum::ARGB8888).unwrap();
+                    Surface::new(2, 2, sdl2::pixels::PixelFormatEnum::ARGB8888).unwrap();
                 surface
                     .set_blend_mode(sdl2::render::BlendMode::None)
                     .unwrap();
                 surface.with_lock_mut(|buffer| {
-                    for x in 0i32..256 {
-                        for y in 0i32..256 {
-                            let pixel_offset = (4 * (x + y * 256)) as usize;
-                            if x <= 3 || x >= 252 || y <= 3 || y >= 252 {
-                                let v = ((x / 4 + y / 4) % 2) as u8;
-                                buffer[pixel_offset] = v * 0xff;
-                                buffer[pixel_offset + 1] = v * 0xff;
-                                buffer[pixel_offset + 2] = v * 0xff;
-                                buffer[pixel_offset + 3] = 0xff;
-                            } else {
-                                buffer[pixel_offset] = ((y as f32 / 255.0) * 0xFF as f32) as u8;
-                                buffer[pixel_offset + 1] = ((x as f32 / 255.0) * 0xFF as f32) as u8;
-                                buffer[pixel_offset + 2] = 0xFF - buffer[pixel_offset + 1];
-                                buffer[pixel_offset + 3] = ((x * y) % 0xFF) as u8;
-                            }
-                        }
-                    }
+                    buffer[0] = 0xFF;
+                    buffer[1] = 0xFF;
+                    buffer[2] = 0xFF;
+                    buffer[3] = 0xFF;
+
+                    buffer[4] = 0xFF;
+                    buffer[5] = 0;
+                    buffer[6] = 0;
+                    buffer[7] = 0xFF;
+
+                    buffer[8] = 0xFF;
+                    buffer[9] = 0;
+                    buffer[10] = 0;
+                    buffer[11] = 0xFF;
+
+                    buffer[12] = 0xFF;
+                    buffer[13] = 0xFF;
+                    buffer[14] = 0xFF;
+                    buffer[15] = 0xFF;
                 });
 
                 self.creator
@@ -806,16 +791,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         })
     }
 
-    fn static_text_size(
-        &mut self,
-        _text: NonEmptyStr,
-        _point_size: NonZeroU16,
-        _wrap_width: Option<NonZeroU32>,
-    ) -> Result<(NonZeroU32, NonZeroU32), String> {
-        todo!()
-    }
-
-    fn dynamic_text_size(
+    fn text_size(
         &mut self,
         _text: NonEmptyStr,
         _point_size: NonZeroU16,
@@ -902,7 +878,6 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
             y,
             ..
         } => {
-            // if mouse_btn.
             return Some(Event::Mouse(crate::core::event::MouseEvent {
                 x,
                 y,

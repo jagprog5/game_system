@@ -64,7 +64,7 @@ fn do_test<'a, T: game_system::core::System<'a>>(font_file_content: &'a [u8]) ->
     }
 
     {
-        let mut test_text = system.static_text(
+        let mut test_text = system.text(
             "press escape after sounds".try_into()?,
             NonZero::new(64).unwrap(),
             None,

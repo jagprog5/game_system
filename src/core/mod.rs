@@ -38,9 +38,6 @@ pub trait System<'font_data>: Sized {
     type Texture<'system>: crate::core::Texture<'system>
     where
         Self: 'system;
-    type TextureOwned<'system>: crate::core::Texture<'system>
-    where
-        Self: 'system;
 
     /// initialize subsystems. create a vsync window
     ///
@@ -76,8 +73,9 @@ pub trait System<'font_data>: Sized {
     /// instance can then be used to draw to the screen
     fn texture(&mut self, image_path: &Path) -> Result<Self::Texture<'_>, String>;
 
-    /// equivalent to texture() but produce the debug texture
-    fn debug_texture(&mut self) -> Result<Self::Texture<'_>, String>;
+    /// equivalent to texture() but produce the a very small software rendered
+    /// texture that's built-in for this backend
+    fn missing_texture(&mut self) -> Result<Self::Texture<'_>, String>;
 
     /// render text or reuse from (unspecified) cache. the texture instance can
     /// then be used to draw to the screen
@@ -88,37 +86,19 @@ pub trait System<'font_data>: Sized {
     ///
     /// calls to this function MUST not have arguments which constantly change.
     /// for example, a frame count text is guaranteed to change every frame and
-    /// should not be used here. if arguments do constantly change each frame,
+    /// must not be used here. if arguments do constantly change each frame,
     /// then dynamic_text() must be used instead
-    fn static_text(
+    fn text(
         &mut self,
         text: NonEmptyStr,
         point_size: NonZeroU16,
         wrap_width: Option<NonZeroU32>,
     ) -> Result<Self::Texture<'_>, String>;
 
-    /// see static_text() for more details.
+    /// see text() for more details.
     ///
     /// just obtain the size of the text if it were to be rendered
-    fn static_text_size(
-        &mut self,
-        text: NonEmptyStr,
-        point_size: NonZeroU16,
-        wrap_width: Option<NonZeroU32>,
-    ) -> Result<(NonZeroU32, NonZeroU32), String>;
-
-    /// see static_text for details. unlike static_text, the cache is not used
-    fn dynamic_text(
-        &mut self,
-        text: NonEmptyStr,
-        point_size: NonZeroU16,
-        wrap_width: Option<NonZeroU32>,
-    ) -> Result<Self::TextureOwned<'_>, String>;
-
-    /// see dynamic_text() for more details.
-    ///
-    /// just obtain the size of the text if it were to be rendered
-    fn dynamic_text_size(
+    fn text_size(
         &mut self,
         text: NonEmptyStr,
         point_size: NonZeroU16,
@@ -192,7 +172,7 @@ pub trait System<'font_data>: Sized {
     fn set_music_volume(&mut self, volume: f32);
 
     /// from 0 to 1 inclusively
-    fn get_music_volume(&self) -> f32;
+    fn music_volume(&self) -> f32;
 
     /// receive input from the user. wait forever until that happens
     fn event(&mut self) -> Event;
