@@ -1,0 +1,103 @@
+use std::{path::Path, time::Duration};
+
+use example_common::gui_loop::gui_loop;
+use game_system::{core::{color::Color, texture_area::TextureArea}, ui::{
+    util::length::{MaxLen, MaxLenPolicy, MinLen, MinLenPolicy, PreferredPortion},
+    widget::{border::Border, texture::{AspectRatioFailPolicy, Texture}, update_gui, Widget},
+}};
+
+#[path = "example_common/mod.rs"]
+mod example_common;
+
+fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
+    font_file_content: &'font_data [u8],
+) -> Result<(), String> {
+    const WIDTH: u32 = 400;
+    const HEIGHT: u32 = 400;
+    const MAX_DELAY: Duration = Duration::from_millis(17);
+
+    let image_path = Path::new(".")
+        .join("examples")
+        .join("assets")
+        .join("test.jpg");
+
+    let border_path = Path::new(".")
+        .join("examples")
+        .join("assets")
+        .join("border.png");
+
+    let mut system = T::new(
+        Some((
+            "border",
+            (WIDTH as u32).try_into().unwrap(),
+            (HEIGHT as u32).try_into().unwrap(),
+        )),
+        font_file_content,
+    )?;
+
+    let mut texture_widget = Texture::new(image_path);
+    texture_widget.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
+    texture_widget.request_aspect_ratio = false;
+    texture_widget.pref_w = PreferredPortion(0.5);
+    texture_widget.pref_h = PreferredPortion(0.5);
+    texture_widget.min_w_policy = MinLenPolicy::Literal(MinLen::LAX);
+    texture_widget.max_w_policy = MaxLenPolicy::Literal(MaxLen::LAX);
+    texture_widget.min_h_policy = MinLenPolicy::Literal(MinLen::LAX);
+    texture_widget.max_h_policy = MaxLenPolicy::Literal(MaxLen::LAX);
+
+    let mut border = Border::new(Box::new(texture_widget), border_path, TextureArea {
+        x: 0,
+        y: 0,
+        w: 15.try_into().unwrap(),
+        h: 5.try_into().unwrap(),
+    }, TextureArea {
+        x: 16,
+        y: 0,
+        w: 5.try_into().unwrap(),
+        h: 5.try_into().unwrap(),
+    });
+
+    gui_loop(MAX_DELAY, &mut system, |system, events| {
+        update_gui(&mut border, events, system)?;
+
+        // after gui update, use whatever events are left
+        for e in events.iter_mut().filter(|e| e.available()) {
+            match e.e {
+                game_system::core::event::Event::Mouse(mouse_event) => {
+                    if mouse_event.down && mouse_event.changed {
+                        e.set_consumed(); // intentional redundant
+                        println!("nothing consumed the click! {:?}", (mouse_event.x, mouse_event.y));
+                    }
+                },
+                game_system::core::event::Event::Key(key_event) => {
+                    if key_event.key == 27 { // esc
+                        e.set_consumed(); // intentional redundant
+                        return Ok(true);
+                    }
+                },
+                _ => {}
+            }
+        }
+
+        system.clear(Color { r: 0, g: 0, b: 0, a: 0xFF })?;
+        border.draw(system)?;
+        system.present()?;
+        Ok(false)
+    })?;
+    Ok(())
+}
+
+fn main() -> Result<(), String> {
+    let font_file_contents = include_bytes!("assets/TEMPSITC-REDUCED.TTF");
+
+    #[cfg(feature = "rust-sdl2")]
+    return do_example::<game_system::core::backends::rust_sdl2::RustSDL2System>(
+        font_file_contents,
+    );
+
+    // OTHER BACKENDS HERE
+    // ...
+
+    #[allow(unreachable_code)]
+    Err("No backend enabled! Enable a feature (e.g., `--features rust-sdl2`).".to_owned())
+}

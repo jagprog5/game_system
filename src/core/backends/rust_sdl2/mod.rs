@@ -1,3 +1,9 @@
+mod cache_checker;
+mod font;
+mod math;
+mod texture_key;
+mod texture_wrapper;
+
 use std::{
     collections::BTreeMap,
     num::{NonZeroU16, NonZeroU32},
@@ -6,12 +12,6 @@ use std::{
     sync::Mutex,
     time::{Duration, Instant},
 };
-
-mod cache_checker;
-mod font;
-mod math;
-mod texture_key;
-mod texture_wrapper;
 
 use cache_checker::CacheMissChecker;
 use font::Font;
@@ -24,6 +24,7 @@ use sdl2::{
     rect::Rect,
     render::{Canvas, TextureCreator},
     rwops::RWops,
+    surface::Surface,
     sys::mixer::MIX_MAX_VOLUME,
     ttf::Sdl2TtfContext,
     video::{Window, WindowContext},
@@ -32,7 +33,12 @@ use sdl2::{
 use texture_key::TextureKey;
 use texture_wrapper::TextureWrapper;
 
-use crate::{Event, NonEmptyStr, System, TextureDestination};
+use crate::core::{
+    color::Color,
+    event::MouseWheelEvent,
+    texture_area::{TextureDestinationF, TextureSource, TextureSourceF},
+    Event, NonEmptyStr, System, TextureDestination,
+};
 
 /// there's only one sdl mixer music callback globally which accepts a function
 /// pointer. so there has to be a global state :(
@@ -120,93 +126,70 @@ pub struct Texture<'sys> {
     canvas: &'sys mut Canvas<Window>,
 }
 
-impl<'sys> crate::Texture<'sys> for Texture<'sys> {
-    fn copy<Dst>(&mut self, src: crate::TextureArea, dst: Dst) -> Result<(), String>
+impl<'sys> crate::core::Texture<'sys> for Texture<'sys> {
+    fn copy<Src, Dst>(&mut self, src: Src, dst: Dst) -> Result<(), String>
     where
+        Src: Into<TextureSource>,
         Dst: Into<TextureDestination>,
     {
         let dst = dst.into();
-        let src = sdl2::rect::Rect::new(src.x, src.y, src.w.into(), src.h.into());
-
-        let texture_attributes = match dst {
-            TextureDestination::Int(.., texture_attributes)
-            | TextureDestination::Float(.., texture_attributes) => texture_attributes,
+        let src: TextureSource = src.into();
+        let src = match src {
+            TextureSource::WholeTexture => None,
+            TextureSource::Area(src) => Some(sdl2::rect::Rect::new(
+                src.x,
+                src.y,
+                src.w.into(),
+                src.h.into(),
+            )),
         };
 
-        if texture_attributes.r != u8::MAX
-            || texture_attributes.g != u8::MAX
-            || texture_attributes.b != u8::MAX
-        {
+        if dst.2.r != u8::MAX || dst.2.g != u8::MAX || dst.2.b != u8::MAX {
             // handle non default rgb mod
-            self.txt.set_color_mod(
-                texture_attributes.r,
-                texture_attributes.g,
-                texture_attributes.b,
-            );
+            self.txt.set_color_mod(dst.2.r, dst.2.g, dst.2.b);
         }
 
-        if texture_attributes.a != u8::MAX {
+        if dst.2.a != u8::MAX {
             // handle non default alpha mod
-            self.txt.set_alpha_mod(texture_attributes.a);
+            self.txt.set_alpha_mod(dst.2.a);
         }
 
-        let ret = match dst {
-            TextureDestination::Int(dst, maybe_rotation, ..) => {
-                let dst = sdl2::rect::Rect::new(dst.x, dst.y, dst.w.into(), dst.h.into());
-                match maybe_rotation {
-                    None => self.canvas.copy(&self.txt, src, dst),
-                    Some(rot) => {
-                        let angle: f32 = rot.angle.into();
-                        let angle: f64 = angle.into();
-                        let point = rot
-                            .point
-                            .map(|point| sdl2::rect::Point::from((point.0, point.1)));
-                        self.canvas.copy_ex(
-                            &self.txt,
-                            src,
-                            dst,
-                            angle,
-                            point,
-                            rot.flip_horizontal,
-                            rot.flip_vertical,
-                        )
-                    }
-                }
-            }
-            TextureDestination::Float(dst, maybe_rotation, ..) => {
-                let dst =
-                    sdl2::rect::FRect::new(dst.x.into(), dst.y.into(), dst.w.into(), dst.h.into());
-                match maybe_rotation {
-                    None => self.canvas.copy_f(&self.txt, src, dst),
-                    Some(rot) => {
-                        let angle: f32 = rot.angle.into();
-                        let angle: f64 = angle.into();
-                        let point = rot.point.map(|point| {
-                            sdl2::rect::FPoint::from((point.0.into(), point.1.into()))
-                        });
-                        self.canvas.copy_ex_f(
-                            &self.txt,
-                            src,
-                            dst,
-                            angle,
-                            point,
-                            rot.flip_horizontal,
-                            rot.flip_vertical,
-                        )
-                    }
+        let ret = {
+            let TextureDestination(dst, maybe_rotation, _) = dst;
+
+            let dst =sdl2::rect::Rect::from_ll(sdl2::sys::SDL_Rect {
+                x: dst.x,
+                y: dst.y,
+                w: dst.w.get() as i32,
+                h: dst.h.get() as i32,
+            });
+            match maybe_rotation {
+                None => self.canvas.copy(&self.txt, src, dst),
+                Some(rot) => {
+                    let angle: f32 = rot.angle.into();
+                    let angle: f64 = angle.into();
+                    let point = rot
+                        .point
+                        .map(|point| sdl2::rect::Point::from((point.0, point.1)));
+                    self.canvas.copy_ex(
+                        &self.txt,
+                        src,
+                        dst,
+                        angle,
+                        point,
+                        rot.flip_horizontal,
+                        rot.flip_vertical,
+                    )
                 }
             }
         };
 
         // reset attributes
-        if texture_attributes.r != u8::MAX
-            || texture_attributes.g != u8::MAX
-            || texture_attributes.b != u8::MAX
-        {
+        if dst.2.r != u8::MAX || dst.2.g != u8::MAX || dst.2.b != u8::MAX {
             self.txt.set_color_mod(u8::MAX, u8::MAX, u8::MAX);
         }
 
-        if texture_attributes.a != u8::MAX {
+        if dst.2.a != u8::MAX {
             self.txt.set_alpha_mod(u8::MAX);
         }
 
@@ -219,30 +202,72 @@ impl<'sys> crate::Texture<'sys> for Texture<'sys> {
         let height = NonZeroU32::new(query.height).ok_or("texture height zero")?;
         Ok((width, height))
     }
-}
 
-// exposed part of the interface
-pub struct TextureOwned<'sys> {
-    txt: sdl2::render::Texture,
-    canvas: &'sys mut Canvas<Window>,
-}
-
-impl<'sys> crate::Texture<'sys> for TextureOwned<'sys> {
-    fn copy<Dst>(&mut self, src: crate::TextureArea, dst: Dst) -> Result<(), String>
+    fn copy_f<Src, Dst>(&mut self, src: Src, dst: Dst) -> Result<(), String>
     where
-        Dst: Into<TextureDestination> {
-        let mut texture_not_owned = Texture {
-            txt: &mut self.txt,
-            canvas: self.canvas,
-        };
-        texture_not_owned.copy(src, dst)
-    }
+        Src: Into<TextureSourceF>,
+        Dst: Into<crate::core::texture_area::TextureDestinationF>,
+    {
+        let dst = dst.into();
+        let src: TextureSourceF = src.into();
 
-    fn size(&self) -> Result<(NonZeroU32, NonZeroU32), String> {
-        let query = self.txt.query();
-        let width = NonZeroU32::new(query.width).ok_or("texture width zero")?;
-        let height = NonZeroU32::new(query.height).ok_or("texture height zero")?;
-        Ok((width, height))
+        // unfortunately sdl2 does not support floating point txt src. sdl3
+        // supports this though!
+        let src = match src {
+            TextureSourceF::WholeTexture => None,
+            TextureSourceF::Area(src) => Some(sdl2::rect::Rect::new(
+                src.x.get().round() as i32,
+                src.y.get().round() as i32,
+                src.w.get().round() as u32,
+                src.h.get().round() as u32,
+            )),
+        };
+
+        if dst.2.r != u8::MAX || dst.2.g != u8::MAX || dst.2.b != u8::MAX {
+            // handle non default rgb mod
+            self.txt.set_color_mod(dst.2.r, dst.2.g, dst.2.b);
+        }
+
+        if dst.2.a != u8::MAX {
+            // handle non default alpha mod
+            self.txt.set_alpha_mod(dst.2.a);
+        }
+
+        let ret = {
+            let TextureDestinationF(dst, maybe_rotation, _) = dst;
+            let dst =
+                sdl2::rect::FRect::new(dst.x.into(), dst.y.into(), dst.w.into(), dst.h.into());
+            match maybe_rotation {
+                None => self.canvas.copy_f(&self.txt, src, dst),
+                Some(rot) => {
+                    let angle: f32 = rot.angle.into();
+                    let angle: f64 = angle.into();
+                    let point = rot
+                        .point
+                        .map(|point| sdl2::rect::FPoint::from((point.0.into(), point.1.into())));
+                    self.canvas.copy_ex_f(
+                        &self.txt,
+                        src,
+                        dst,
+                        angle,
+                        point,
+                        rot.flip_horizontal,
+                        rot.flip_vertical,
+                    )
+                }
+            }
+        };
+
+        // reset attributes
+        if dst.2.r != u8::MAX || dst.2.g != u8::MAX || dst.2.b != u8::MAX {
+            self.txt.set_color_mod(u8::MAX, u8::MAX, u8::MAX);
+        }
+
+        if dst.2.a != u8::MAX {
+            self.txt.set_alpha_mod(u8::MAX);
+        }
+
+        ret
     }
 }
 
@@ -252,12 +277,11 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         = Texture<'system>
     where
         Self: 'system;
-    type TextureOwned<'system>
-        = TextureOwned<'system>
-    where
-        Self: 'system;
 
-    fn new(font_file_data: &'font_data [u8]) -> Result<Self, String> {
+    fn new(
+        size: Option<(&str, NonZeroU32, NonZeroU32)>,
+        font_file_data: &'font_data [u8],
+    ) -> Result<Self, String> {
         let sdl = sdl2::init()?;
         let video = sdl.video()?;
         let audio = sdl.audio()?;
@@ -269,11 +293,20 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         )?;
         sdl2::mixer::Music::hook_finished(music_finished_hook);
 
-        let window = video
-            .window("", 0, 0)
-            .fullscreen_desktop()
-            .build()
-            .map_err(|e| e.to_string())?;
+        let window = match size {
+            Some(size) => {
+                let mut ret = video.window(size.0, size.1.get(), size.2.get());
+                ret.resizable();
+                ret
+            }
+            None => {
+                let mut ret = video.window("", 0, 0);
+                ret.fullscreen_desktop();
+                ret
+            }
+        }
+        .build()
+        .map_err(|e| e.to_string())?;
 
         let canvas = window
             .into_canvas()
@@ -300,7 +333,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
             // wanted to account for this
             texture_cache: LruCache::new(32.try_into().unwrap()),
             texture_cache_health_checker: Default::default(),
-            texture_cache_miss_threshold: 1,
+            texture_cache_miss_threshold: 2,
             loaded_fonts: Default::default(),
             event_pump: sdl.event_pump()?,
             creator,
@@ -315,6 +348,38 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
             _sdl: sdl,
             font_file_data,
         })
+    }
+
+    fn recreate_window(
+        &mut self,
+        size: Option<(&str, NonZeroU32, NonZeroU32)>,
+    ) -> Result<(), String> {
+        // texture must be dropped first, before parent canvas / creator
+        self.texture_cache.clear();
+        self.texture_cache_health_checker.reset();
+
+        let window = match size {
+            Some(size) => self._video.window(size.0, size.1.get(), size.2.get()),
+            None => {
+                let mut ret = self._video.window("", 0, 0);
+                ret.fullscreen_desktop();
+                ret
+            }
+        }
+        .build()
+        .map_err(|e| e.to_string())?;
+
+        let canvas = window
+            .into_canvas()
+            .present_vsync()
+            .build()
+            .map_err(|e| e.to_string())?;
+        let creator = canvas.texture_creator();
+
+        // replacement order is super important here
+        self.creator = creator;
+        self.canvas = canvas;
+        Ok(())
     }
 
     fn size(&self) -> Result<(NonZeroU32, NonZeroU32), String> {
@@ -345,14 +410,19 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         })
     }
 
-    fn clear(&mut self, color: sdl2::pixels::Color) -> Result<(), String> {
-        self.canvas.set_draw_color(color);
+    fn clear(&mut self, c: Color) -> Result<(), String> {
+        self.canvas
+            .set_draw_color(sdl2::pixels::Color::RGBA(c.r, c.g, c.b, c.a));
         self.canvas.clear();
         Ok(())
     }
 
     fn present(&mut self) -> Result<(), String> {
         self.canvas.present();
+
+        // see text() for reason
+        let _ = self.missing_texture()?;
+
         let previous_n_frames_had_cache_misses = self.texture_cache_health_checker.frame_end();
         if previous_n_frames_had_cache_misses >= self.texture_cache_miss_threshold {
             self.texture_cache_miss_threshold *= 2;
@@ -367,7 +437,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         Ok(())
     }
 
-    fn static_text(
+    fn text(
         &mut self,
         text: NonEmptyStr,
         point_size: NonZeroU16,
@@ -392,13 +462,22 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         let txt = self.texture_cache.try_get_or_insert_mut_ref(
             &texture_key,
             || -> Result<TextureWrapper, String> {
+                // NO!
+                // self.texture_cache_health_checker.cache_miss_occurred();
+
                 // the thinking is as follows: if there is short lived text,
                 // such as from a frame counter (any of the properties change
                 // each frame), then this will cause the cache to keep growing
                 // forever given the current expansion rules (it gives cache
-                // miss each frame and so thrashing is assumed). so dynamic_text
-                // is used instead
-                self.texture_cache_health_checker.cache_miss_occurred();
+                // miss each frame and so thrashing is assumed). not having this
+                // here has the same overall effect, it's just checked when
+                // image textures are loaded instead (since the text will push
+                // things out of the cache all the same).
+
+                // there is one parasitic case, if the app only ever draws text
+                // and never draws textures at all, then the cache misses aren't
+                // registered. for safety this is prevented by loading the debug
+                // texture each frame in present()
 
                 // must recreate the texture as it is not in the cache.
                 let font = match self.loaded_fonts.get(&point_size) {
@@ -423,6 +502,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
                     .create_texture_from_surface(surface)
                     .map_err(|e| e.to_string())?;
                 texture.set_blend_mode(sdl2::render::BlendMode::Blend);
+                texture.set_scale_mode(sdl2::render::ScaleMode::Linear);
                 Ok(TextureWrapper(texture))
             },
         )?;
@@ -433,65 +513,33 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         })
     }
 
-    fn dynamic_text(
-        &mut self,
-        text: NonEmptyStr,
-        point_size: NonZeroU16,
-        wrap_width: Option<NonZeroU32>,
-    ) -> Result<TextureOwned<'_>, String> {
-        let point_size = capped_next_power_of_two(point_size);
-        let font = match self.loaded_fonts.get(&point_size) {
-            Some(v) => v, // point size is available
-            None => {
-                // must create font object for points size
-                let rwops =
-                    RWops::from_bytes(self.font_file_data).map_err(|e| e.to_string())?;
-                let font = Font::new(&self.ttf_context, rwops, point_size.get())?;
-                self.loaded_fonts.insert(point_size, font);
-                // sanity check on discretization method
-                debug_assert!(self.loaded_fonts.len() < 20);
-                self.loaded_fonts.get(&point_size).unwrap()
-            }
-        };
-
-        let surface = font.render(text.0, wrap_width)?;
-
-        let mut texture = self
-            .creator
-            .create_texture_from_surface(surface)
-            .map_err(|e| e.to_string())?;
-        texture.set_blend_mode(sdl2::render::BlendMode::Blend);
-        Ok(TextureOwned {
-            txt: texture,
-            canvas: &mut self.canvas,
-        })
-    }
-
-    fn clip(&mut self, c: crate::ClippingRect) {
+    fn clip(&mut self, c: crate::core::ClippingArea) {
         self.canvas.set_clip_rect(match c {
-            crate::ClippingRect::Some(texture_area) => sdl2::render::ClippingRect::Some(Rect::new(
-                texture_area.x,
-                texture_area.y,
-                texture_area.w.get(),
-                texture_area.h.get(),
-            )),
-            crate::ClippingRect::Zero => sdl2::render::ClippingRect::Zero,
-            crate::ClippingRect::None => sdl2::render::ClippingRect::None,
+            crate::core::ClippingArea::Some(texture_area) => {
+                sdl2::render::ClippingRect::Some(Rect::new(
+                    texture_area.x,
+                    texture_area.y,
+                    texture_area.w.get(),
+                    texture_area.h.get(),
+                ))
+            }
+            crate::core::ClippingArea::Zero => sdl2::render::ClippingRect::Zero,
+            crate::core::ClippingArea::None => sdl2::render::ClippingRect::None,
         })
     }
 
-    fn get_clip(&mut self) -> crate::ClippingRect {
+    fn get_clip(&mut self) -> crate::core::ClippingArea {
         match self.canvas.clip_rect() {
             sdl2::render::ClippingRect::Some(rect) => {
-                crate::ClippingRect::Some(crate::TextureArea {
+                crate::core::ClippingArea::Some(crate::core::TextureArea {
                     x: rect.x,
                     y: rect.y,
                     w: rect.width().try_into().unwrap(),
                     h: rect.height().try_into().unwrap(),
                 })
             }
-            sdl2::render::ClippingRect::Zero => crate::ClippingRect::Zero,
-            sdl2::render::ClippingRect::None => crate::ClippingRect::None,
+            sdl2::render::ClippingRect::Zero => crate::core::ClippingArea::Zero,
+            sdl2::render::ClippingRect::None => crate::core::ClippingArea::None,
         }
     }
 
@@ -633,7 +681,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         }
     }
 
-    fn event_timeout(&mut self, timeout: Duration) -> Option<crate::Event> {
+    fn event_timeout(&mut self, timeout: Duration) -> Option<crate::core::Event> {
         let start_time = Instant::now();
         loop {
             let duration_since_start = Instant::now() - start_time;
@@ -642,10 +690,12 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
             }
 
             let duration_remaining = timeout - duration_since_start;
+            let duration_remaining = duration_remaining.as_millis() as u32;
+            if duration_remaining == 0 {
+                return None; // just in case
+            }
 
-            let event_in = self
-                .event_pump
-                .wait_event_timeout(duration_remaining.as_millis() as u32);
+            let event_in = self.event_pump.wait_event_timeout(duration_remaining);
             match event_in {
                 Some(e) => {
                     let maybe_e = translate_sdl_event(e);
@@ -702,8 +752,62 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         sdl2::mixer::Music::set_volume((volume * MIX_MAX_VOLUME as f32).round() as i32);
     }
 
-    fn get_music_volume(&self) -> f32 {
+    fn music_volume(&self) -> f32 {
         sdl2::mixer::Music::get_volume() as f32 / MIX_MAX_VOLUME as f32
+    }
+
+    fn missing_texture(&mut self) -> Result<Self::Texture<'_>, String> {
+        let texture_key = TextureKey::debug_key();
+
+        let txt = self.texture_cache.try_get_or_insert_mut_ref(
+            &texture_key,
+            || -> Result<TextureWrapper, String> {
+                self.texture_cache_health_checker.cache_miss_occurred();
+
+                // generate the debug texture
+
+                let mut surface =
+                    Surface::new(2, 2, sdl2::pixels::PixelFormatEnum::ARGB8888).unwrap();
+                surface
+                    .set_blend_mode(sdl2::render::BlendMode::None)
+                    .unwrap();
+                surface.with_lock_mut(|buffer| {
+                    buffer[0] = 0xFF;
+                    buffer[1] = 0xFF;
+                    buffer[2] = 0xFF;
+                    buffer[3] = 0xFF;
+
+                    buffer[4] = 0xFF;
+                    buffer[5] = 0;
+                    buffer[6] = 0;
+                    buffer[7] = 0xFF;
+
+                    buffer[8] = 0xFF;
+                    buffer[9] = 0;
+                    buffer[10] = 0;
+                    buffer[11] = 0xFF;
+
+                    buffer[12] = 0xFF;
+                    buffer[13] = 0xFF;
+                    buffer[14] = 0xFF;
+                    buffer[15] = 0xFF;
+                });
+
+                self.creator
+                    .create_texture_from_surface(surface)
+                    .map(|mut txt| {
+                        // Nearest scale mode is the default for sdl2 (but not sdl3!)
+                        txt.set_blend_mode(sdl2::render::BlendMode::Blend);
+                        TextureWrapper(txt)
+                    })
+                    .map_err(|e| e.to_string())
+            },
+        )?;
+
+        Ok(Texture {
+            txt: &mut txt.0,
+            canvas: &mut self.canvas,
+        })
     }
 }
 
@@ -728,7 +832,7 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
                         }
                     }
                 };
-                return Some(Event::Window(crate::Window {
+                return Some(Event::Window(crate::core::event::Window {
                     width: i32_to_nonzero_u32(w),
                     height: i32_to_nonzero_u32(h),
                 }));
@@ -744,7 +848,9 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
                 None => None,
             };
             match keycode {
-                Some(key) => return Some(Event::Key(crate::KeyEvent { key, down: true })),
+                Some(key) => {
+                    return Some(Event::Key(crate::core::event::KeyEvent { key, down: true }))
+                }
                 None => {}
             }
         }
@@ -757,16 +863,21 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
                 None => None,
             };
             match keycode {
-                Some(key) => return Some(Event::Key(crate::KeyEvent { key, down: false })),
+                Some(key) => {
+                    return Some(Event::Key(crate::core::event::KeyEvent {
+                        key,
+                        down: false,
+                    }))
+                }
                 None => {}
             }
         }
         sdl2::event::Event::MouseMotion {
             mousestate, x, y, ..
         } => {
-            return Some(Event::Mouse(crate::MouseEvent {
-                x: x as u32,
-                y: y as u32,
+            return Some(Event::Mouse(crate::core::event::MouseEvent {
+                x,
+                y,
                 down: mousestate.left(),
                 changed: false,
             }))
@@ -777,10 +888,9 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
             y,
             ..
         } => {
-            // if mouse_btn.
-            return Some(Event::Mouse(crate::MouseEvent {
-                x: x as u32,
-                y: y as u32,
+            return Some(Event::Mouse(crate::core::event::MouseEvent {
+                x,
+                y,
                 down: true,
                 changed: true,
             }));
@@ -791,11 +901,30 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
             y,
             ..
         } => {
-            return Some(Event::Mouse(crate::MouseEvent {
-                x: x as u32,
-                y: y as u32,
+            return Some(Event::Mouse(crate::core::event::MouseEvent {
+                x,
+                y,
                 down: false,
                 changed: true,
+            }))
+        }
+        sdl2::event::Event::MouseWheel {
+            direction,
+            x,
+            y,
+            mouse_x,
+            mouse_y,
+            ..
+        } => {
+            let multiplier: i32 = match direction {
+                sdl2::mouse::MouseWheelDirection::Flipped => -1,
+                _ => 1,
+            };
+            return Some(Event::MouseWheel(MouseWheelEvent {
+                x: mouse_x,
+                y: mouse_y,
+                wheel_dx: x * multiplier,
+                wheel_dy: y * multiplier,
             }))
         }
         _ => {}
@@ -808,7 +937,7 @@ pub struct LoopingSoundHandle<'a> {
     path: &'a Path,
 }
 
-impl<'a> crate::LoopingSoundHandle<'a> for LoopingSoundHandle<'a> {
+impl<'a> crate::core::LoopingSoundHandle<'a> for LoopingSoundHandle<'a> {
     fn new(path: &'a Path) -> Self {
         Self {
             channel: None,

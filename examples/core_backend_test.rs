@@ -3,12 +3,19 @@
 use std::time::Instant;
 use std::{num::NonZero, path::Path, time::Duration};
 
-use game_system::LoopingSoundHandle;
-use game_system::{Texture, TextureArea, TextureDestination};
-use sdl2::pixels::Color;
+use game_system::core::color::Color;
+use game_system::core::event::Event;
+use game_system::core::texture_area::{TextureArea, TextureDestination};
+use game_system::core::{LoopingSoundHandle, Texture};
 
-fn do_test<'a, T: game_system::System<'a>>(font_file_content: &'a [u8]) -> Result<(), String> {
-    let mut system = T::new(font_file_content)?;
+fn do_test<'a, T: game_system::core::System<'a>>(font_file_content: &'a [u8]) -> Result<(), String> {
+    let mut system = T::new(None, font_file_content)?;
+    system.present()?;
+    std::thread::sleep(Duration::from_millis(500));
+    system.recreate_window(Some(("test", 800.try_into().unwrap(), 600.try_into().unwrap())))?;
+    system.present()?;
+    std::thread::sleep(Duration::from_millis(500));
+    system.recreate_window(None)?;
 
     let window_size = system.size()?;
     {
@@ -27,7 +34,7 @@ fn do_test<'a, T: game_system::System<'a>>(font_file_content: &'a [u8]) -> Resul
                 w: test_texture_size.0,
                 h: test_texture_size.1,
             },
-            TextureDestination::Int(
+            TextureDestination(
                 TextureArea {
                     x: window_size.0.get() as i32 - 200,
                     y: 0,
@@ -35,7 +42,7 @@ fn do_test<'a, T: game_system::System<'a>>(font_file_content: &'a [u8]) -> Resul
                     h: 200.try_into().unwrap(),
                 },
                 None,
-                Color::RGB(255, 0, 255),
+                Color{ r: 255, g: 0, b: 255, a: 255 },
             ),
         )?;
 
@@ -57,8 +64,8 @@ fn do_test<'a, T: game_system::System<'a>>(font_file_content: &'a [u8]) -> Resul
     }
 
     {
-        let mut test_text = system.static_text(
-            "press escape after sounds".try_into()?,
+        let mut test_text = system.text(
+            "press escape after sounds".try_into().map_err(|()| "zero length string".to_owned())?,
             NonZero::new(64).unwrap(),
             None,
         )?;
@@ -170,14 +177,14 @@ fn do_test<'a, T: game_system::System<'a>>(font_file_content: &'a [u8]) -> Resul
             None => {}
             Some(event) => {
                 match event {
-                    game_system::Event::Quit => break,
-                    game_system::Event::Key(key_event) => {
+                    Event::Quit => break,
+                    Event::Key(key_event) => {
                         if key_event.key == 27 {
                             // ESC
                             break;
                         }
                     }
-                    _ => {}
+                    _ => {} // always have default for backward compatibility!
                 }
             }
         }
@@ -195,7 +202,7 @@ fn main() -> Result<(), String> {
     let font_file_contents = include_bytes!("assets/TEMPSITC-REDUCED.TTF");
 
     #[cfg(feature = "rust-sdl2")]
-    return do_test::<game_system::backends::rust_sdl2::RustSDL2System>(font_file_contents);
+    return do_test::<game_system::core::backends::rust_sdl2::RustSDL2System>(font_file_contents);
 
     // OTHER BACKENDS HERE
     // ...

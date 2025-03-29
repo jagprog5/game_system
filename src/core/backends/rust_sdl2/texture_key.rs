@@ -15,12 +15,20 @@ use std::{os::unix::ffi::OsStrExt, path::Path};
 /// for rendered wrapping text:
 ///
 /// 0x02 + u16(16pt) + u32(123pix) + "some text"
+///
+/// debug texture:
+///
+/// 0xFF
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TextureKey {
     data: Vec<u8>,
 }
 
 impl TextureKey {
+    pub fn debug_key() -> Self {
+        Self { data: vec![0xff] }
+    }
+
     pub fn from_path(texture_path: &Path) -> Self {
         let mut data: Vec<u8> = Default::default();
         let data_len = 1 + texture_path.as_os_str().as_bytes().len();
