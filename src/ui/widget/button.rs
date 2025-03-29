@@ -136,11 +136,11 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> Widget<'fo
         self.sizing.preferred_height_from_width(self.inherit_sizing_widget(), pref_w, sys_interface)
     }
 
-    fn update(&mut self, mut event: WidgetUpdateEvent, sys_interface: &mut T) -> Result<(), String> {
+    fn update(&mut self, mut event: WidgetUpdateEvent, sys_interface: &mut T) -> Result<bool, String> {
         self.released.set(false);
         let non_zero_area : TextureArea = match event.position.into() {
             Some(v) => v,
-            None => return Ok(()), // can't click or hover with zero area
+            None => return Ok(false), // can't click or hover with zero area
         };
         for e in event.events.iter_mut().filter(|e| e.available()) {
             match e.e {
@@ -170,7 +170,7 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> Widget<'fo
 
         let sizing = self.sizing;
         sizing.update_contained(self.current_widget_mut(), &mut event, sys_interface)?;
-        Ok(())
+        Ok(false)
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {

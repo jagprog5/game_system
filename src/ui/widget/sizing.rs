@@ -97,7 +97,7 @@ impl NestedContentSizing {
         contained: &mut dyn Widget<'font_data, T>,
         event: &mut WidgetUpdateEvent,
         sys_interface: &mut T,
-    ) -> Result<(), String> {
+    ) -> Result<bool, String> {
         let position_for_contained =
             self.position_for_contained(contained, event, sys_interface)?;
         let event_for_contained = event.sub_event(position_for_contained);

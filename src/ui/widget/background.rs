@@ -59,7 +59,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Background<'font_d
 impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Widget<'font_data, T>
     for Background<'font_data, 'b, T>
 {
-    fn update(&mut self, mut event: WidgetUpdateEvent, sys_interface: &mut T) -> Result<(), String> {
+    fn update(&mut self, mut event: WidgetUpdateEvent, sys_interface: &mut T) -> Result<bool, String> {
         self.background_draw_pos = event.position;
         self.sizing.update_contained(self.contained.as_mut(), &mut event, sys_interface)
     }

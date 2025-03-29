@@ -74,13 +74,13 @@ impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for CheckBox<'state> 
         Some(Ok(pref_w))
     }
 
-    fn update(&mut self, event: super::WidgetUpdateEvent, sys_interface: &mut T) -> Result<(), String> {
+    fn update(&mut self, event: super::WidgetUpdateEvent, sys_interface: &mut T) -> Result<bool, String> {
         self.changed.set(false);
         self.draw_pos = event.position;
         
         let non_zero_area : TextureArea = match self.draw_pos.into() {
             Some(v) => v,
-            None => return Ok(()), // can't click or hover with zero area
+            None => return Ok(false), // can't click or hover with zero area
         };
         for e in event.events.iter_mut().filter(|e| e.available()) {
             match e.e {
@@ -103,7 +103,7 @@ impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for CheckBox<'state> 
                 _ => {}
             }
         }
-        Ok(())
+        Ok(false)
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {

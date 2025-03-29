@@ -1,6 +1,6 @@
 use std::{cell::Cell, num::NonZeroU32, path::Path, time::Duration};
 
-use example_common::gui_loop::gui_loop;
+use example_common::gui_loop::{gui_loop, HandlerReturnValue};
 use game_system::{
     core::{color::Color, texture_area::TextureArea},
     ui::{layout::scroller::Scroller, widget::{checkbox::CheckBox, sizing::{CustomSizing, NestedContentSizing}, update_gui, Widget}},
@@ -14,7 +14,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
 ) -> Result<(), String> {
     const WIDTH: u32 = 400;
     const HEIGHT: u32 = 400;
-    const MAX_DELAY: Duration = Duration::from_millis(17);
+    const DELAY: Duration = Duration::from_micros(16666);
 
     let checkbox_path = Path::new(".")
         .join("examples")
@@ -75,8 +75,8 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     let mut scroller = Scroller::<'font_data, '_, T>::new(true, true, Box::new(checkbox));
     scroller.sizing = NestedContentSizing::Custom(CustomSizing::default());
 
-    gui_loop(MAX_DELAY, &mut system, |system, events| {
-        update_gui(&mut scroller, events, system)?;
+    gui_loop(DELAY, &mut system, |system, events, dt| {
+        let r = update_gui(&mut scroller, events, system, dt)?;
 
         if changed.get() {
             if checked.get() {
@@ -102,8 +102,12 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
                     if key_event.key == 27 {
                         // esc
                         e.set_consumed(); // intentional redundant
-                        return Ok(true);
+                        return Ok(HandlerReturnValue::Stop);
                     }
+                }
+                game_system::core::event::Event::Quit => {
+                    e.set_consumed(); // intentional redundant
+                    return Ok(HandlerReturnValue::Stop);
                 }
                 _ => {}
             }
@@ -117,7 +121,10 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         })?;
         scroller.draw(system)?;
         system.present()?;
-        Ok(false)
+        Ok(match r {
+            true => HandlerReturnValue::NextFrame,
+            false => HandlerReturnValue::DelayNextFrame,
+        })
     })?;
     Ok(())
 }

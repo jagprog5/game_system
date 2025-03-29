@@ -73,14 +73,14 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Debug {
         )))
     }
 
-    fn update(&mut self, event: WidgetUpdateEvent, _sys_interface: &mut T) -> Result<(), String> {
+    fn update(&mut self, event: WidgetUpdateEvent, _sys_interface: &mut T) -> Result<bool, String> {
         self.clicked_this_frame = false; // reset each frame
         self.draw_pos = event.position;
 
         let pos: Option<TextureArea> = event.position.into();
         let pos = match pos {
             Some(v) => v,
-            None => return Ok(()), // only functionality is being clicked
+            None => return Ok(false), // only functionality is being clicked
         };
 
         for e in event.events.iter_mut().filter(|e| e.available()) {
@@ -95,7 +95,7 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Debug {
             }
         }
 
-        Ok(())
+        Ok(false)
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {

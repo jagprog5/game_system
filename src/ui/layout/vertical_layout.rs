@@ -165,9 +165,9 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for VerticalLayout<'a, 'b
         self.max_h_fail_policy
     }
 
-    fn update(&mut self, mut event: WidgetUpdateEvent, sys_interface: &mut T) -> Result<(), String> {
+    fn update(&mut self, mut event: WidgetUpdateEvent, sys_interface: &mut T) -> Result<bool, String> {
         if self.elems.is_empty() {
-            return Ok(());
+            return Ok(false);
         }
 
         // collect various info from child components
@@ -233,8 +233,7 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for VerticalLayout<'a, 'b
             let mut sub_event = event.sub_event(position);
             sub_event.aspect_ratio_priority =
                 crate::ui::util::length::AspectRatioPreferredDirection::WidthFromHeight;
-            self.elems[0].update(sub_event, sys_interface)?;
-            return Ok(());
+            return self.elems[0].update(sub_event, sys_interface);
         }
 
         let mut sum_display_height = 0f32;
@@ -307,6 +306,7 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for VerticalLayout<'a, 'b
             }
         }
 
+        let mut any_request_another_frame = false;
         for (elem, info) in
             direction_conditional_iter_mut(&mut self.elems, self.reverse).zip(info.iter_mut())
         {
@@ -343,13 +343,14 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for VerticalLayout<'a, 'b
             });
             sub_event.aspect_ratio_priority =
                 crate::ui::util::length::AspectRatioPreferredDirection::WidthFromHeight;
-            elem.update(sub_event, sys_interface)?;
+            let elem_request_another_frame = elem.update(sub_event, sys_interface)?;
+            any_request_another_frame |= elem_request_another_frame;
             if !self.reverse {
                 y_pos += info.height;
                 y_pos += vertical_space;
             }
         }
-        Ok(())
+        Ok(any_request_another_frame)
     }
 
     fn draw(

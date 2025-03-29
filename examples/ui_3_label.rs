@@ -1,6 +1,6 @@
 use std::{cell::Cell, time::Duration};
 
-use example_common::gui_loop::gui_loop;
+use example_common::gui_loop::{gui_loop, HandlerReturnValue};
 use game_system::{
     core::color::Color,
     ui::{
@@ -23,7 +23,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
 ) -> Result<(), String> {
     const WIDTH: u32 = 800;
     const HEIGHT: u32 = 600;
-    const MAX_DELAY: Duration = Duration::from_millis(17);
+    const DELAY: Duration = Duration::from_micros(16666);
 
     let mut system = T::new(
         Some((
@@ -86,7 +86,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     bottom_layout.elems.push(Box::new(bottom_right_label));
     layout.elems.push(Box::new(bottom_layout));
 
-    gui_loop(MAX_DELAY, &mut system, |system, events| {
+    gui_loop(DELAY, &mut system, |system, events, dt| {
         for e in events.iter_mut().filter(|e| e.available()) {
             match e.e {
                 game_system::core::event::Event::Window(window) => {
@@ -95,7 +95,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
                 _ => {}
             }
         }
-        update_gui(&mut layout, events, system)?;
+        let r = update_gui(&mut layout, events, system, dt)?;
 
         // after gui update, use whatever events are left
         for e in events.iter_mut().filter(|e| e.available()) {
@@ -113,8 +113,12 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
                     if key_event.key == 27 {
                         // esc
                         e.set_consumed(); // intentional redundant
-                        return Ok(true);
+                        return Ok(HandlerReturnValue::Stop);
                     }
+                }
+                game_system::core::event::Event::Quit => {
+                    e.set_consumed(); // intentional redundant
+                    return Ok(HandlerReturnValue::Stop);
                 }
                 _ => {}
             }
@@ -128,7 +132,10 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         })?;
         layout.draw(system)?;
         system.present()?;
-        Ok(false)
+        Ok(match r {
+            true => HandlerReturnValue::NextFrame,
+            false => HandlerReturnValue::DelayNextFrame,
+        })
     })?;
     Ok(())
 }

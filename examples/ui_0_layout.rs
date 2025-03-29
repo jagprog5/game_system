@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use example_common::gui_loop::gui_loop;
+use example_common::gui_loop::{gui_loop, HandlerReturnValue};
 use game_system::{core::color::Color, ui::{
     layout::{
         horizontal_layout::HorizontalLayout,
@@ -28,7 +28,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         font_file_content,
     )?;
 
-    const MAX_DELAY: Duration = Duration::from_millis(17);
+    const DELAY: Duration = Duration::from_micros(16666);
 
     let mut horizontal_0 = Debug::default();
     horizontal_0.sizing.min_h = (HEIGHT - 20.).into();
@@ -111,8 +111,8 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     horizontal_layout.elems.push(Box::new(horizontal_4));
     horizontal_layout.elems.push(Box::new(horizontal_5));
 
-    gui_loop(MAX_DELAY, &mut system, |system, events| {
-        update_gui(&mut horizontal_layout, events, system)?;
+    gui_loop(DELAY, &mut system, |system, events, dt| {
+        let r = update_gui(&mut horizontal_layout, events, system, dt)?;
 
         // after gui update, use whatever events are left
         for e in events.iter_mut().filter(|e| e.available()) {
@@ -126,9 +126,13 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
                 game_system::core::event::Event::Key(key_event) => {
                     if key_event.key == 27 { // esc
                         e.set_consumed(); // intentional redundant
-                        return Ok(true);
+                        return Ok(HandlerReturnValue::Stop);
                     }
                 },
+                game_system::core::event::Event::Quit => {
+                    e.set_consumed(); // intentional redundant
+                    return Ok(HandlerReturnValue::Stop);
+                }
                 _ => {}
             }
         }
@@ -136,7 +140,11 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         system.clear(Color { r: 0, g: 0, b: 0, a: 0xFF })?;
         horizontal_layout.draw(system)?;
         system.present()?;
-        Ok(false)
+        // Ok(HandlerReturnValue::NextFrame)
+        Ok(match r {
+            true => HandlerReturnValue::NextFrame,
+            false => HandlerReturnValue::DelayNextFrame,
+        })
     })?;
     Ok(())
 }

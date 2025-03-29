@@ -13,7 +13,7 @@ pub mod checkbox;
 pub mod button;
 pub mod sizing;
 
-use std::num::NonZeroU32;
+use std::{num::NonZeroU32, time::Duration};
 
 use crate::{
     core::clipping_rect::ClippingArea, ui::util::{
@@ -114,6 +114,8 @@ pub struct WidgetUpdateEvent<'sdl> {
     pub aspect_ratio_priority: AspectRatioPreferredDirection,
     /// handle all events from sdl. contains events in order of occurrence
     pub events: &'sdl mut [UIEvent],
+    /// time since previous event, or 0 if first event
+    pub dt: Duration,
 }
 
 impl<'sdl> WidgetUpdateEvent<'sdl> {
@@ -127,6 +129,7 @@ impl<'sdl> WidgetUpdateEvent<'sdl> {
             clipping_rect: self.clipping_rect,
             aspect_ratio_priority: self.aspect_ratio_priority,
             events: reborrow(self.events),
+            dt: self.dt
         }
     }
 
@@ -193,8 +196,17 @@ pub trait Widget<'font_data, T: crate::core::System<'font_data>> {
     }
 
     /// called for all widgets each frame before any call to draw
-    fn update(&mut self, _event: WidgetUpdateEvent, _sys_interface: &mut T) -> Result<(), String> {
-        Ok(())
+    /// 
+    /// if the UI is being lazily updated - meaning that the UI is only updated
+    /// and drawn once input events are received or state changes, then the
+    /// screen can remain idle for a while. however this is unsuited for
+    /// animations or other effects:
+    ///  - true indicates that another frame should follow quickly after this
+    ///  - false means don't care
+    /// 
+    /// a return value of true indicates 
+    fn update(&mut self, _event: WidgetUpdateEvent, _sys_interface: &mut T) -> Result<bool, String> {
+        Ok(false)
     }
 
     /// draw. called after all widgets are update each frame
@@ -202,11 +214,14 @@ pub trait Widget<'font_data, T: crate::core::System<'font_data>> {
 }
 
 /// each frame after update_gui, the widget should be drawn with widget.draw()
+/// 
+/// dt is the duration since the previous frame, or 0 if it's the first frame
 pub fn update_gui<'font_data, 'b, T: crate::core::System<'font_data> + 'b>(
     widget: &'b mut dyn Widget<'font_data, T>,
     events: &'b mut [UIEvent],
     system: &mut T,
-) -> Result<(), String> {
+    dt: Duration,
+) -> Result<bool, String> {
     let (w, h) = match system.size() {
         Ok(v) => v,
         Err(msg) => {
@@ -239,9 +254,9 @@ pub fn update_gui<'font_data, 'b, T: crate::core::System<'font_data> + 'b>(
         events,
         aspect_ratio_priority: AspectRatioPreferredDirection::default(),
         clipping_rect: ClippingArea::None,
+        dt
     };
-    widget.update(widget_event, system)?;
-    Ok(())
+    widget.update(widget_event, system)
 }
 
 /// given a widget's min, max lengths and fail policies, what's the widget's

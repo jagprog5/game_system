@@ -128,7 +128,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
         Ok((m.0.combined(baseline), m.1.combined(baseline)))
     }
 
-    fn update(&mut self, mut event: WidgetUpdateEvent, sys_interface: &mut T) -> Result<(), String> {
+    fn update(&mut self, mut event: WidgetUpdateEvent, sys_interface: &mut T) -> Result<bool, String> {
         self.border_draw_pos = event.position;
         let style_width = (self.length_texture_src.h.get()) as f32;
         let position_for_child = crate::ui::util::rect::FRect {

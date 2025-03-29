@@ -128,9 +128,9 @@ impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for MultiLineLabel<'s
         }
     }
 
-    fn update(&mut self, event: WidgetUpdateEvent, _sys_interface: &mut T) -> Result<(), String> {
+    fn update(&mut self, event: WidgetUpdateEvent, _sys_interface: &mut T) -> Result<bool, String> {
         self.draw_pos = event.position;
-        Ok(())
+        Ok(false)
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {

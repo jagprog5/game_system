@@ -218,7 +218,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
         &mut self,
         mut event: WidgetUpdateEvent,
         sys_interface: &mut T,
-    ) -> Result<(), String> {
+    ) -> Result<bool, String> {
         let pos: Option<TextureArea> = event.position.into();
         let pos = match pos {
             Some(v) => v,
@@ -364,7 +364,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
 
         let mut event_for_contained = event.sub_event(self.position_for_contained_from_update);
         event_for_contained.clipping_rect = self.clipping_rect_for_contained_from_update;
-        self.contained.update(event_for_contained, sys_interface)?;
+        let ret = self.contained.update(event_for_contained, sys_interface)?;
 
         for i in 0..defer_consumed.len() {
             if defer_consumed[i] {
@@ -372,7 +372,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
             }
         }
 
-        Ok(())
+        Ok(ret)
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {

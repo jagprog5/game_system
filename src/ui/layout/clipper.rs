@@ -24,7 +24,7 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Clipper<'a, T> {
         &mut self,
         mut event: crate::ui::widget::WidgetUpdateEvent,
         sys_interface: &mut T
-    ) -> Result<(), String> {
+    ) -> Result<bool, String> {
         let previous_clipping_rect = event.clipping_rect;
         // store for update step
         self.update_clip_rect = previous_clipping_rect.intersect_area(event.position.into());

@@ -1,6 +1,6 @@
 use std::{path::Path, time::Duration};
 
-use example_common::gui_loop::gui_loop;
+use example_common::gui_loop::{gui_loop, HandlerReturnValue};
 use game_system::{core::color::Color, ui::{layout::horizontal_layout::HorizontalLayout, util::length::{MaxLen, MaxLenPolicy, MinLen, MinLenPolicy}, widget::{texture::{AspectRatioFailPolicy, Texture}, update_gui, Widget}}};
 
 #[path = "example_common/mod.rs"]
@@ -11,7 +11,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
 ) -> Result<(), String> {
     const WIDTH: u32 = 256 * 4;
     const HEIGHT: u32 = 256;
-    const MAX_DELAY: Duration = Duration::from_millis(17);
+    const DELAY: Duration = Duration::from_micros(16666);
 
     let image_path = Path::new(".")
         .join("examples")
@@ -65,8 +65,8 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     horizontal_layout.elems.push(Box::new(texture2));
     horizontal_layout.elems.push(Box::new(texture3));
 
-    gui_loop(MAX_DELAY, &mut system, |system, events| {
-        update_gui(&mut horizontal_layout, events, system)?;
+    gui_loop(DELAY, &mut system, |system, events, dt| {
+        let r = update_gui(&mut horizontal_layout, events, system, dt)?;
 
         // after gui update, use whatever events are left
         for e in events.iter_mut().filter(|e| e.available()) {
@@ -80,9 +80,13 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
                 game_system::core::event::Event::Key(key_event) => {
                     if key_event.key == 27 { // esc
                         e.set_consumed(); // intentional redundant
-                        return Ok(true);
+                        return Ok(HandlerReturnValue::Stop);
                     }
                 },
+                game_system::core::event::Event::Quit => {
+                    e.set_consumed(); // intentional redundant
+                    return Ok(HandlerReturnValue::Stop);
+                }
                 _ => {}
             }
         }
@@ -90,7 +94,10 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         system.clear(Color { r: 0, g: 0, b: 0, a: 0xFF })?;
         horizontal_layout.draw(system)?;
         system.present()?;
-        Ok(false)
+        Ok(match r {
+            true => HandlerReturnValue::NextFrame,
+            false => HandlerReturnValue::DelayNextFrame,
+        })
     })?;
     Ok(())
 }
