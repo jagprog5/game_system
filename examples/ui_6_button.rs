@@ -1,21 +1,29 @@
 use std::{cell::Cell, num::NonZeroU32, path::Path, time::Duration};
 
-use example_common::gui_loop::{gui_loop, HandlerReturnValue};
 use game_system::{
-    core::{color::Color, texture_area::TextureArea},
-    ui::{util::length::MaxLen, widget::{
-        background::Background, border::Border, button::{Button, ButtonInheritSizing}, single_line_label::SingleLineLabel, update_gui, Widget
-    }},
+    core::{color::Color, texture_area::TextureRect},
+    ui::{
+        layout::{
+            scroller::{ScrollAspectRatioDirectionPolicy, Scroller},
+            vertical_layout::VerticalLayout,
+        },
+        util::length::{
+            AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MinLenFailPolicy,
+            PreferredPortion,
+        },
+        widget::{
+            background::Background, border::Border, button::{Button, ButtonInheritSizing}, gui_loop, multi_line_label::{MultiLineLabel, MultiLineMinHeightFailPolicy}, single_line_label::SingleLineLabel, sizing::{CustomSizing, NestedContentSizing}, update_gui, HandlerReturnValue, Widget
+        },
+    },
 };
 
-#[path = "example_common/mod.rs"]
-mod example_common;
+
 
 fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
     font_file_content: &'font_data [u8],
 ) -> Result<(), String> {
     const WIDTH: u32 = 400;
-    const HEIGHT: u32 = 400;
+    const HEIGHT: u32 = 250;
     const DELAY: Duration = Duration::from_micros(16666);
 
     let window_settings = (
@@ -25,6 +33,8 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     );
 
     let mut system = T::new(Some(window_settings), font_file_content)?;
+
+    // a button with a border and background
 
     let button_release = Cell::new(false);
 
@@ -61,8 +71,8 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
 
     let background = Background::new(
         Some((
-            background_path,
-            TextureArea {
+            background_path.clone(),
+            TextureRect {
                 x: 0,
                 y: 0,
                 w: sixteen,
@@ -73,20 +83,73 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         Box::new(button),
     );
 
-    let mut border = Border::new(Box::new(background), border_path, TextureArea {
-        x: 0,
-        y: 0,
-        w: 15.try_into().unwrap(),
-        h: 5.try_into().unwrap(),
-    }, TextureArea {
-        x: 16,
-        y: 0,
-        w: 5.try_into().unwrap(),
-        h: 5.try_into().unwrap(),
-    });
+    let button = Border::new(
+        Box::new(background),
+        border_path,
+        TextureRect {
+            x: 0,
+            y: 0,
+            w: 15.try_into().unwrap(),
+            h: 5.try_into().unwrap(),
+        },
+        TextureRect {
+            x: 16,
+            y: 0,
+            w: 5.try_into().unwrap(),
+            h: 5.try_into().unwrap(),
+        },
+    );
+
+    // next, have some scrollable text
+    let mut text = MultiLineLabel::new(
+        "scroll down to read! this\nis\na lot of\nmultiline text\nand a ton of lore as well!"
+            .into(),
+        20.try_into().unwrap(),
+        Color {
+            r: 0xFF,
+            g: 0xFF,
+            b: 0xFF,
+            a: 0xFF,
+        },
+    );
+    // the multiline widget's bounds should respect the text (don't cut it off
+    // or get around it in some other way) - and if the widget is too big then
+    // allow it to expand downwards. and if it's too small, then stay upwards
+    text.min_h_policy =
+        MultiLineMinHeightFailPolicy::None(MinLenFailPolicy::POSITIVE, MaxLenFailPolicy::NEGATIVE);
+
+    // put the text in a vertical scroller
+    let mut scroller = Scroller::new(false, true, Box::new(text));
+    scroller.lock_small_content_y = Some(MaxLenFailPolicy::NEGATIVE);
+    // see the doc for MultiLineLabel for why this is needed
+    scroller.custom_sizing_info =
+        ScrollAspectRatioDirectionPolicy::Literal(AspectRatioPreferredDirection::HeightFromWidth);
+    scroller.sizing = NestedContentSizing::Custom(Default::default());
+
+    let mut layout = VerticalLayout::default();
+    layout.elems.push(Box::new(scroller));
+    layout.elems.push(Box::new(button));
+
+    let mut background_sizing = CustomSizing::default();
+    background_sizing.preferred_h = PreferredPortion(0.75);
+    background_sizing.preferred_w = PreferredPortion(0.75);
+    let mut background = Background::<'font_data, '_, T>::new(
+        Some((
+            background_path,
+            TextureRect {
+                x: 0,
+                y: 0,
+                w: sixteen,
+                h: sixteen,
+            }
+            .into(),
+        )),
+        Box::new(layout),
+    );
+    background.sizing = NestedContentSizing::Custom(background_sizing);
 
     gui_loop(DELAY, &mut system, |system, events, dt| {
-        let r = update_gui(&mut border, events, system, dt)?;
+        let r = update_gui(&mut background, events, system, dt)?;
 
         if button_release.get() {
             println!("button was pressed");
@@ -125,7 +188,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
             b: 0,
             a: 0xFF,
         })?;
-        border.draw(system)?;
+        background.draw(system)?;
         system.present()?;
         Ok(match r {
             true => HandlerReturnValue::NextFrame,

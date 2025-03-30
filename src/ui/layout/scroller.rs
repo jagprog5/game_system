@@ -1,14 +1,14 @@
 use crate::{
-    core::{clipping_rect::ClippingArea, texture_area::TextureArea},
+    core::{clipping_rect::ClippingRect, texture_area::TextureRect},
     ui::{
         util::{
-            length::{AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
+            length::{
+                AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy,
+                PreferredPortion,
+            },
             rect::FRect,
         },
-        widget::{
-            sizing::NestedContentSizing,
-            Widget, WidgetUpdateEvent,
-        },
+        widget::{sizing::NestedContentSizing, Widget, WidgetUpdateEvent},
     },
 };
 
@@ -30,8 +30,6 @@ pub enum ScrollAspectRatioDirectionPolicy {
 
 /// translates its content - facilitates scrolling. also applies clipping rect
 /// to contained content
-///
-/// explicitly does not support nested scroller widgets
 ///
 /// does NOT do any form of culling for widgets which are not visible in the
 /// current viewing area - all contained widgets are updated and drawn. it is
@@ -61,9 +59,12 @@ pub struct Scroller<'font_data, 'b, T: crate::core::System<'font_data>> {
     /// true restricts the scrolling to keep the contained in frame
     pub restrict_scroll: bool,
 
+    pub lock_small_content_y: Option<MaxLenFailPolicy>,
+    pub lock_small_content_x: Option<MaxLenFailPolicy>,
+
     /// calculated during update, stored for draw.
     /// used for clipping rect calculations
-    clipping_rect_for_contained_from_update: ClippingArea,
+    clipping_rect_for_contained_from_update: ClippingRect,
     position_for_contained_from_update: FRect,
 }
 
@@ -83,8 +84,10 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Scroller<'font_data, 'b
             contained: contains,
             custom_sizing_info: Default::default(),
             restrict_scroll: true,
+            lock_small_content_y: None,
+            lock_small_content_x: None,
             sizing: NestedContentSizing::Inherit,
-            clipping_rect_for_contained_from_update: ClippingArea::None,
+            clipping_rect_for_contained_from_update: ClippingRect::None,
             position_for_contained_from_update: Default::default(),
         }
     }
@@ -93,10 +96,12 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Scroller<'font_data, 'b
 /// apply even if scroll is not enabled (as what if it was enabled previously
 /// and content was moved off screen)
 fn apply_scroll_restrictions(
-    mut position_for_contained: TextureArea,
-    event_position: TextureArea,
+    mut position_for_contained: TextureRect,
+    event_position: TextureRect,
     scroll_y: &mut i32,
     scroll_x: &mut i32,
+    lock_small_content_y: Option<MaxLenFailPolicy>,
+    lock_small_content_x: Option<MaxLenFailPolicy>,
 ) {
     position_for_contained.x += *scroll_x;
     position_for_contained.y += *scroll_y;
@@ -109,15 +114,21 @@ fn apply_scroll_restrictions(
 
     if position_for_contained_h < event_position_h {
         // the contained thing is smaller than the parent
-        let violating_top = position_for_contained.y < event_position.y;
-        let violating_bottom = position_for_contained.y + position_for_contained_h
-            > event_position.y + event_position_h;
+        if let Some(lock_small_content_y) = lock_small_content_y {
+            *scroll_y = ((event_position_h - position_for_contained_h) as f32
+                * lock_small_content_y.0)
+                .round() as i32;
+        } else {
+            let violating_top = position_for_contained.y < event_position.y;
+            let violating_bottom = position_for_contained.y + position_for_contained_h
+                > event_position.y + event_position_h;
 
-        if violating_top {
-            *scroll_y += (event_position.y - position_for_contained.y) as i32;
-        } else if violating_bottom {
-            *scroll_y -= ((position_for_contained.y + position_for_contained_h)
-                - (event_position.y + event_position_h)) as i32;
+            if violating_top {
+                *scroll_y += (event_position.y - position_for_contained.y) as i32;
+            } else if violating_bottom {
+                *scroll_y -= ((position_for_contained.y + position_for_contained_h)
+                    - (event_position.y + event_position_h)) as i32;
+            }
         }
     } else {
         let down_from_top = position_for_contained.y > event_position.y;
@@ -135,15 +146,21 @@ fn apply_scroll_restrictions(
 
     if position_for_contained_w < event_position_w {
         // the contained thing is smaller than the parent
-        let violating_left = position_for_contained.x < event_position.x;
-        let violating_right = position_for_contained.x + position_for_contained_w
-            > event_position.x + event_position_w;
+        if let Some(lock_small_content_x) = lock_small_content_x {
+            *scroll_x = ((event_position_w - position_for_contained_w) as f32
+                * lock_small_content_x.0)
+                .round() as i32;
+        } else {
+            let violating_left = position_for_contained.x < event_position.x;
+            let violating_right = position_for_contained.x + position_for_contained_w
+                > event_position.x + event_position_w;
 
-        if violating_left {
-            *scroll_x += (event_position.x - position_for_contained.x) as i32;
-        } else if violating_right {
-            *scroll_x -= ((position_for_contained.x + position_for_contained_w)
-                - (event_position.x + event_position_w)) as i32;
+            if violating_left {
+                *scroll_x += (event_position.x - position_for_contained.x) as i32;
+            } else if violating_right {
+                *scroll_x -= ((position_for_contained.x + position_for_contained_w)
+                    - (event_position.x + event_position_w)) as i32;
+            }
         }
     } else {
         let left_from_right = position_for_contained.x > event_position.x;
@@ -209,7 +226,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
             .preferred_height_from_width(self.contained.as_ref(), pref_w, sys_interface)
     }
 
-    fn preferred_link_allowed_exceed_portion(&self) -> bool {
+    fn preferred_ratio_exceed_parent(&self) -> bool {
         self.sizing
             .preferred_link_allowed_exceed_portion(self.contained.as_ref())
     }
@@ -219,7 +236,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
         mut event: WidgetUpdateEvent,
         sys_interface: &mut T,
     ) -> Result<bool, String> {
-        let pos: Option<TextureArea> = event.position.into();
+        let pos: Option<TextureRect> = event.position.into();
         let pos = match pos {
             Some(v) => v,
             None => {
@@ -242,10 +259,6 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
         let mut defer_consumed: Vec<bool> = Vec::new();
         defer_consumed.resize(event.events.len(), false);
 
-        // applied below
-        let mut scroll_x_from_wheel = 0;
-        let mut scroll_y_from_wheel = 0;
-
         // handle click and drag scroll
         for (index, e) in event
             .events
@@ -258,8 +271,8 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                     if pos.contains_point((m.x, m.y))
                         && event.clipping_rect.contains_point((m.x, m.y))
                     {
-                        scroll_x_from_wheel += m.wheel_dx * 7;
-                        scroll_y_from_wheel += m.wheel_dy * 7;
+                        self.scroll_x -= m.wheel_dx * 7;
+                        self.scroll_y += m.wheel_dy * 7;
                     }
                 }
                 crate::core::event::Event::Mouse(m) => {
@@ -316,7 +329,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
         // change the ratio direction just before getting the position
         if let NestedContentSizing::Custom(_) = self.sizing {
             if let ScrollAspectRatioDirectionPolicy::Literal(dir) = self.custom_sizing_info {
-                event.aspect_ratio_priority = dir;
+                event.aspect_ratio_direction = dir;
             }
         }
 
@@ -324,7 +337,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
             self.sizing
                 .position_for_contained(self.contained.as_ref(), &event, sys_interface)?;
 
-        let position_for_contained: Option<TextureArea> =
+        let position_for_contained: Option<TextureRect> =
             self.position_for_contained_from_update.into();
         let position_for_contained = match position_for_contained {
             Some(v) => v,
@@ -333,27 +346,14 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
             }
         };
 
-        let scroll_wheel_y_multiplier = if position_for_contained.h > pos.h {
-            1
-        } else {
-            -1
-        };
-
-        let scroll_wheel_x_multiplier = if position_for_contained.w > pos.w {
-            1
-        } else {
-            -1
-        };
-
-        self.scroll_x += scroll_wheel_x_multiplier * scroll_x_from_wheel;
-        self.scroll_y += scroll_wheel_y_multiplier * scroll_y_from_wheel;
-
         if self.restrict_scroll {
             apply_scroll_restrictions(
                 position_for_contained,
                 pos,
                 &mut self.scroll_y,
                 &mut self.scroll_x,
+                self.lock_small_content_y,
+                self.lock_small_content_x,
             );
         }
 

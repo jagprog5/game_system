@@ -182,8 +182,7 @@ impl Default for PreferredPortion {
     }
 }
 
-#[derive(Clone, Copy)]
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 pub enum MinLenPolicy {
     /// inherit the dimensions of the contained thing
     #[default]
@@ -192,9 +191,7 @@ pub enum MinLenPolicy {
     Literal(MinLen),
 }
 
-
-#[derive(Clone, Copy)]
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 pub enum MaxLenPolicy {
     /// inherit the dimensions of the contained thing
     #[default]
@@ -203,15 +200,12 @@ pub enum MaxLenPolicy {
     Literal(MaxLen),
 }
 
-
-#[derive(Copy, Clone, Debug)]
-#[derive(Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub enum AspectRatioPreferredDirection {
     #[default]
     WidthFromHeight,
     HeightFromWidth,
 }
-
 
 impl AspectRatioPreferredDirection {
     pub fn width_from_height(ratio: f32, h: f32) -> f32 {

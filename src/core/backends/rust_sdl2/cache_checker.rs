@@ -1,9 +1,9 @@
-pub struct CacheMissChecker {
+pub struct CacheThrashingChecker {
     last_n_frames_had_cache_misses: u32,
     this_frame_had_cache_misses: bool,
 }
 
-impl Default for CacheMissChecker {
+impl Default for CacheThrashingChecker {
     fn default() -> Self {
         Self {
             last_n_frames_had_cache_misses: Default::default(),
@@ -12,7 +12,7 @@ impl Default for CacheMissChecker {
     }
 }
 
-impl CacheMissChecker {
+impl CacheThrashingChecker {
     pub fn cache_miss_occurred(&mut self) {
         self.this_frame_had_cache_misses = true;
     }

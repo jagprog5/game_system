@@ -17,6 +17,8 @@ pub struct MouseEvent {
     pub changed: bool,
 }
 
+/// intent is for the system to work on mobile as well, so this might not be
+/// available!
 #[derive(Debug, Clone, Copy)]
 pub struct MouseWheelEvent {
     pub x: i32,
@@ -35,7 +37,8 @@ pub struct KeyEvent {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Event {
-    /// more variants might be added. this is a placeholder!
+    /// more variants might be added. this is a forward compatibility
+    /// placeholder!
     Other,
     Quit,
     Window(Window),

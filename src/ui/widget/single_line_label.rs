@@ -1,7 +1,7 @@
 use std::num::NonZeroU16;
 
 use crate::core::color::Color;
-use crate::core::texture_area::{TextureArea, TextureSource};
+use crate::core::texture_area::{TextureRect, TextureSource};
 use crate::core::NonEmptyStr;
 use crate::ui::util::length::{
     AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MaxLenPolicy, MinLen,
@@ -78,7 +78,7 @@ impl<'state> SingleLineLabel<'state> {
             match text {
                 Err(()) => 0.,
                 Ok(v) => {
-                    let size = crate::core::Texture::size(&sys_interface.text(
+                    let size = crate::core::TextureHandle::size(&sys_interface.text(
                         v,
                         RATIO_POINT_SIZE,
                         None,
@@ -165,7 +165,7 @@ impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for SingleLineLabel<'
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {
-        let position: TextureArea = match self.draw_pos.into() {
+        let position: TextureRect = match self.draw_pos.into() {
             Some(v) => v,
             None => return Ok(()),
         };

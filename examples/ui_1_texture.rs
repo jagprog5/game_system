@@ -1,10 +1,20 @@
 use std::{path::Path, time::Duration};
 
-use example_common::gui_loop::{gui_loop, HandlerReturnValue};
-use game_system::{core::color::Color, ui::{layout::horizontal_layout::HorizontalLayout, util::length::{MaxLen, MaxLenPolicy, MinLen, MinLenPolicy}, widget::{texture::{AspectRatioFailPolicy, Texture}, update_gui, Widget}}};
+use game_system::{
+    core::color::Color,
+    ui::{
+        layout::horizontal_layout::HorizontalLayout,
+        util::length::{MaxLen, MaxLenPolicy, MinLen, MinLenPolicy},
+        widget::{
+            gui_loop, texture::{AspectRatioFailPolicy, Texture}, update_gui, HandlerReturnValue, Widget
+        },
+    },
+};
 
-#[path = "example_common/mod.rs"]
-mod example_common;
+// NOTE: the zoom in case truncates to the nearest integer. for details, see the
+// note in game_system::ui::widget::background::Background
+
+
 
 fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
     font_file_content: &'font_data [u8],
@@ -74,15 +84,19 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
                 game_system::core::event::Event::Mouse(mouse_event) => {
                     if mouse_event.down && mouse_event.changed {
                         e.set_consumed(); // intentional redundant
-                        println!("nothing consumed the click! {:?}", (mouse_event.x, mouse_event.y));
+                        println!(
+                            "nothing consumed the click! {:?}",
+                            (mouse_event.x, mouse_event.y)
+                        );
                     }
-                },
+                }
                 game_system::core::event::Event::Key(key_event) => {
-                    if key_event.key == 27 { // esc
+                    if key_event.key == 27 {
+                        // esc
                         e.set_consumed(); // intentional redundant
                         return Ok(HandlerReturnValue::Stop);
                     }
-                },
+                }
                 game_system::core::event::Event::Quit => {
                     e.set_consumed(); // intentional redundant
                     return Ok(HandlerReturnValue::Stop);
@@ -91,7 +105,12 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
             }
         }
 
-        system.clear(Color { r: 0, g: 0, b: 0, a: 0xFF })?;
+        system.clear(Color {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 0xFF,
+        })?;
         horizontal_layout.draw(system)?;
         system.present()?;
         Ok(match r {

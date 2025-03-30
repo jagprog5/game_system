@@ -37,7 +37,7 @@ mod tests {
 
 /// deterministic pseudo random shuffle. don't want to add another dep, so doing
 /// this very simple method by hand, via a Linear Congruential Generator + Knuth
-pub fn shuffle<T>(v: &mut [T], mut seed: u64) {
+pub(crate) fn shuffle<T>(v: &mut [T], mut seed: u64) {
     for i in (1..v.len()).rev() {
         seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
         let j = (seed % (i as u64 + 1)) as usize;

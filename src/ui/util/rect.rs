@@ -1,6 +1,16 @@
 use typed_floats::{NonNaNFinite, StrictlyPositiveFinite};
 
-/// NOT an sdl2::rect::FRect; this one has no restriction on members's values
+/// a position in the UI
+///
+/// this type is deliberately flexible and the members can be any value! it's
+/// used for layout calculations:
+///
+/// - otherwise there's a lot of casting to and from integer. best to keep it
+///   as floating point until just before use
+/// - started running into issues where a one pixel difference leads to a
+///   visible jump. specifically, when a label font size changes in
+///   horizontal layout (a one pixel in height leading to a larger difference
+///   in width due to aspect ratio)
 #[derive(Debug, Clone, Copy, Default)]
 pub struct FRect {
     /// can be any value
@@ -88,7 +98,9 @@ pub fn rect_len_round(i: f32) -> Option<std::num::NonZeroU32> {
     }
 }
 
-impl From<FRect> for Option<crate::core::texture_area::TextureArea> {
+/// convert to texture area for use by system in drawing a pixel at integer
+/// coordinates
+impl From<FRect> for Option<crate::core::texture_area::TextureRect> {
     fn from(val: FRect) -> Self {
         let w = match rect_len_round(val.w) {
             Some(v) => v,
@@ -100,10 +112,11 @@ impl From<FRect> for Option<crate::core::texture_area::TextureArea> {
         };
         let x = rect_position_round(val.x);
         let y = rect_position_round(val.y);
-        Some(crate::core::texture_area::TextureArea { x, y, w, h })
+        Some(crate::core::texture_area::TextureRect { x, y, w, h })
     }
 }
 
+/// convert to floating pt texture area for use by system
 impl From<FRect> for Option<crate::core::texture_area::TextureAreaF> {
     fn from(val: FRect) -> Self {
         let x: NonNaNFinite<f32> = match val.x.try_into() {

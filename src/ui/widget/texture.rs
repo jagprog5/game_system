@@ -6,7 +6,7 @@ use crate::{
     core::{
         color::Color,
         texture_area::{
-            TextureArea, TextureAreaF, TextureDestination, TextureDestinationF, TextureSource,
+            TextureAreaF, TextureDestination, TextureDestinationF, TextureRect, TextureSource,
         },
     },
     ui::util::{
@@ -100,7 +100,7 @@ impl Texture {
 }
 
 impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Texture {
-    fn preferred_link_allowed_exceed_portion(&self) -> bool {
+    fn preferred_ratio_exceed_parent(&self) -> bool {
         self.preferred_link_allowed_exceed_portion
     }
 
@@ -114,7 +114,7 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Texture {
         let size = match self.texture_src {
             TextureSource::WholeTexture => {
                 let texture = sys_interface.texture(&self.texture_path)?;
-                crate::core::Texture::size(&texture)?
+                crate::core::TextureHandle::size(&texture)?
             }
             TextureSource::Area(texture_area) => texture_area.size(),
         };
@@ -147,7 +147,7 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Texture {
         let size = match self.texture_src {
             TextureSource::WholeTexture => {
                 let texture = sys_interface.texture(&self.texture_path)?;
-                crate::core::Texture::size(&texture)?
+                crate::core::TextureHandle::size(&texture)?
             }
             TextureSource::Area(texture_area) => texture_area.size(),
         };
@@ -188,7 +188,7 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Texture {
             let size = match self.texture_src {
                 TextureSource::WholeTexture => {
                     let texture = sys_interface.texture(&self.texture_path)?;
-                    crate::core::Texture::size(&texture)?
+                    crate::core::TextureHandle::size(&texture)?
                 }
                 TextureSource::Area(texture_area) => texture_area.size(),
             };
@@ -213,7 +213,7 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Texture {
             let size = match self.texture_src {
                 TextureSource::WholeTexture => {
                     let texture = sys_interface.texture(&self.texture_path)?;
-                    crate::core::Texture::size(&texture)?
+                    crate::core::TextureHandle::size(&texture)?
                 }
                 TextureSource::Area(texture_area) => texture_area.size(),
             };
@@ -248,7 +248,7 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Texture {
 }
 
 pub(crate) fn texture_draw<'a>(
-    texture: &mut impl crate::core::Texture<'a>,
+    texture: &mut impl crate::core::TextureHandle<'a>,
     color_mod: Color,
     aspect_ratio_fail_policy: &AspectRatioFailPolicy,
     src: TextureSource,
@@ -257,7 +257,7 @@ pub(crate) fn texture_draw<'a>(
     // dst is kept as float form until just before canvas copy. needed or else
     // it is jumpy
 
-    let texture_size = crate::core::Texture::size(texture)?;
+    let texture_size = crate::core::TextureHandle::size(texture)?;
 
     let (src_x, src_y, src_w, src_h) = match src {
         TextureSource::WholeTexture => (0, 0, texture_size.0, texture_size.1),
@@ -266,11 +266,11 @@ pub(crate) fn texture_draw<'a>(
 
     match aspect_ratio_fail_policy {
         AspectRatioFailPolicy::Stretch => {
-            let dst: TextureArea = match dst.into() {
+            let dst: TextureRect = match dst.into() {
                 None => return Ok(()), // can't draw zero size
                 Some(v) => v,
             };
-            crate::core::Texture::copy(texture, src, TextureDestination(dst, None, color_mod))
+            crate::core::TextureHandle::copy(texture, src, TextureDestination(dst, None, color_mod))
         }
         AspectRatioFailPolicy::ZoomOut((zoom_x, zoom_y)) => {
             let src_w = src_w.get() as f32;
@@ -299,11 +299,11 @@ pub(crate) fn texture_draw<'a>(
                 };
 
                 let dst_y_offset = ((dst.h - dst_height.get() as f32) * zoom_y).round() as i32;
-                crate::core::Texture::copy(
+                crate::core::TextureHandle::copy(
                     texture,
                     src,
                     TextureDestination(
-                        TextureArea {
+                        TextureRect {
                             x: rect_position_round(dst.x),
                             y: rect_position_round(dst.y) + dst_y_offset,
                             w: dst_width,
@@ -331,11 +331,11 @@ pub(crate) fn texture_draw<'a>(
                 };
 
                 let dst_x_offset = ((dst.w - dst_width.get() as f32) * zoom_x) as i32;
-                crate::core::Texture::copy(
+                crate::core::TextureHandle::copy(
                     texture,
                     src,
                     TextureDestination(
-                        TextureArea {
+                        TextureRect {
                             x: rect_position_round(dst.x) + dst_x_offset,
                             y: rect_position_round(dst.y),
                             w: dst_width,
@@ -356,7 +356,7 @@ pub(crate) fn texture_draw<'a>(
             };
 
             // this is where the texture is actually copied to
-            let dst_actual: TextureArea = match dst.into() {
+            let dst_actual: TextureRect = match dst.into() {
                 None => return Ok(()), // can't draw zero size
                 Some(v) => v,
             };
@@ -398,7 +398,7 @@ pub(crate) fn texture_draw<'a>(
                 // safe because always ok from NonZeroU32
                 let height_arg = unsafe { StrictlyPositiveFinite::<f32>::new_unchecked(src_h_f) };
 
-                crate::core::Texture::copy_f(
+                crate::core::TextureHandle::copy_f(
                     texture,
                     TextureAreaF {
                         x: x_arg,
@@ -431,7 +431,7 @@ pub(crate) fn texture_draw<'a>(
 
                 let width_arg = unsafe { StrictlyPositiveFinite::<f32>::new_unchecked(src_w_f) };
 
-                crate::core::Texture::copy_f(
+                crate::core::TextureHandle::copy_f(
                     texture,
                     TextureAreaF {
                         x: x_arg,

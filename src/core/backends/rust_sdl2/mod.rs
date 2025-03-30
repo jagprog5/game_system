@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use cache_checker::CacheMissChecker;
+use cache_checker::CacheThrashingChecker;
 use font::Font;
 use lru::LruCache;
 use math::capped_next_power_of_two;
@@ -84,9 +84,10 @@ pub struct RustSDL2System<'font_data> {
     /// looked up. this worst case is fine
     channel_refs: [Option<Rc<Chunk>>; sdl2::sys::mixer::MIX_CHANNELS as usize],
 
+    /// used for both image textures and text textures
     texture_cache: LruCache<TextureKey, TextureWrapper>,
     /// used to detect cache thrashing
-    texture_cache_health_checker: CacheMissChecker,
+    texture_cache_health_checker: CacheThrashingChecker,
     texture_cache_miss_threshold: u32,
 
     /// associates a point size with a loaded font. discretized (there can only
@@ -120,13 +121,12 @@ impl<'font_data> Drop for RustSDL2System<'font_data> {
     }
 }
 
-// exposed part of the interface
 pub struct Texture<'sys> {
     txt: &'sys mut sdl2::render::Texture,
     canvas: &'sys mut Canvas<Window>,
 }
 
-impl<'sys> crate::core::Texture<'sys> for Texture<'sys> {
+impl<'sys> crate::core::TextureHandle<'sys> for Texture<'sys> {
     fn copy<Src, Dst>(&mut self, src: Src, dst: Dst) -> Result<(), String>
     where
         Src: Into<TextureSource>,
@@ -157,7 +157,7 @@ impl<'sys> crate::core::Texture<'sys> for Texture<'sys> {
         let ret = {
             let TextureDestination(dst, maybe_rotation, _) = dst;
 
-            let dst =sdl2::rect::Rect::from_ll(sdl2::sys::SDL_Rect {
+            let dst = sdl2::rect::Rect::from_ll(sdl2::sys::SDL_Rect {
                 x: dst.x,
                 y: dst.y,
                 w: dst.w.get() as i32,
@@ -273,8 +273,14 @@ impl<'sys> crate::core::Texture<'sys> for Texture<'sys> {
 
 impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
     type LoopingSoundHandle<'a> = LoopingSoundHandle<'a>;
-    type Texture<'system>
+    type ImageTextureHandle<'system>
         = Texture<'system>
+    where
+        Self: 'system;
+    // ImageTextureHandle = TextTextureHandle here, but maybe not for other
+    // backends! distinction added to help forward compatibility
+    type TextTextureHandle<'system>
+        = Self::ImageTextureHandle<'system>
     where
         Self: 'system;
 
@@ -320,7 +326,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
             // many different types of sounds are playing rapidly then that
             // would be quite weird. keep in mind too, no sound is played if no
             // channel is available (and it wouldn't try to load anything in
-            // that case)
+            // that case), so there is a limit already
             audio_cache: LruCache::new(
                 (sdl2::sys::mixer::MIX_CHANNELS as usize * 4)
                     .try_into()
@@ -330,9 +336,13 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
             // texture cache has a dynamically increasing capacity with some
             // arbitrary small starting capacity. there could be cases where
             // plenty of textures are drawn to the screen at the same time -
-            // wanted to account for this
+            // wanted to account for this and make it always work
             texture_cache: LruCache::new(32.try_into().unwrap()),
             texture_cache_health_checker: Default::default(),
+            // every time the texture cache is doubled, the threshold is also
+            // doubled. just in case there's an entity that loads texture once
+            // per frame or something (but in reality sprite sheets should be
+            // used for that case)
             texture_cache_miss_threshold: 2,
             loaded_fonts: Default::default(),
             event_pump: sdl.event_pump()?,
@@ -472,7 +482,8 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
                 // miss each frame and so thrashing is assumed). not having this
                 // here has the same overall effect, it's just checked when
                 // image textures are loaded instead (since the text will push
-                // things out of the cache all the same).
+                // things out of the cache and then that will be detected when
+                // image texture cache misses occur).
 
                 // there is one parasitic case, if the app only ever draws text
                 // and never draws textures at all, then the cache misses aren't
@@ -513,9 +524,9 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         })
     }
 
-    fn clip(&mut self, c: crate::core::ClippingArea) {
+    fn clip(&mut self, c: crate::core::ClippingRect) {
         self.canvas.set_clip_rect(match c {
-            crate::core::ClippingArea::Some(texture_area) => {
+            crate::core::ClippingRect::Some(texture_area) => {
                 sdl2::render::ClippingRect::Some(Rect::new(
                     texture_area.x,
                     texture_area.y,
@@ -523,23 +534,23 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
                     texture_area.h.get(),
                 ))
             }
-            crate::core::ClippingArea::Zero => sdl2::render::ClippingRect::Zero,
-            crate::core::ClippingArea::None => sdl2::render::ClippingRect::None,
+            crate::core::ClippingRect::Zero => sdl2::render::ClippingRect::Zero,
+            crate::core::ClippingRect::None => sdl2::render::ClippingRect::None,
         })
     }
 
-    fn get_clip(&mut self) -> crate::core::ClippingArea {
+    fn get_clip(&mut self) -> crate::core::ClippingRect {
         match self.canvas.clip_rect() {
             sdl2::render::ClippingRect::Some(rect) => {
-                crate::core::ClippingArea::Some(crate::core::TextureArea {
+                crate::core::ClippingRect::Some(crate::core::TextureRect {
                     x: rect.x,
                     y: rect.y,
                     w: rect.width().try_into().unwrap(),
                     h: rect.height().try_into().unwrap(),
                 })
             }
-            sdl2::render::ClippingRect::Zero => crate::core::ClippingArea::Zero,
-            sdl2::render::ClippingRect::None => crate::core::ClippingArea::None,
+            sdl2::render::ClippingRect::Zero => crate::core::ClippingRect::Zero,
+            sdl2::render::ClippingRect::None => crate::core::ClippingRect::None,
         }
     }
 
@@ -604,7 +615,9 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
                 })();
 
                 match channel_to_use {
-                    None => return Ok(()), // no available channels
+                    // no available channels. since loop_sound is called
+                    // frequently, it will try again soon
+                    None => return Ok(()),
                     Some(ch) => (ch, true),
                 }
             }
@@ -756,7 +769,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         sdl2::mixer::Music::get_volume() as f32 / MIX_MAX_VOLUME as f32
     }
 
-    fn missing_texture(&mut self) -> Result<Self::Texture<'_>, String> {
+    fn missing_texture(&mut self) -> Result<Self::ImageTextureHandle<'_>, String> {
         let texture_key = TextureKey::debug_key();
 
         let txt = self.texture_cache.try_get_or_insert_mut_ref(
@@ -766,31 +779,28 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
 
                 // generate the debug texture
 
-                let mut surface =
-                    Surface::new(2, 2, sdl2::pixels::PixelFormatEnum::ARGB8888).unwrap();
+                let mut surface = Surface::new(256, 256, sdl2::pixels::PixelFormatEnum::ARGB8888).unwrap();
                 surface
                     .set_blend_mode(sdl2::render::BlendMode::None)
                     .unwrap();
                 surface.with_lock_mut(|buffer| {
-                    buffer[0] = 0xFF;
-                    buffer[1] = 0xFF;
-                    buffer[2] = 0xFF;
-                    buffer[3] = 0xFF;
-
-                    buffer[4] = 0xFF;
-                    buffer[5] = 0;
-                    buffer[6] = 0;
-                    buffer[7] = 0xFF;
-
-                    buffer[8] = 0xFF;
-                    buffer[9] = 0;
-                    buffer[10] = 0;
-                    buffer[11] = 0xFF;
-
-                    buffer[12] = 0xFF;
-                    buffer[13] = 0xFF;
-                    buffer[14] = 0xFF;
-                    buffer[15] = 0xFF;
+                    for x in 0i32..256 {
+                        for y in 0i32..256 {
+                            let pixel_offset = (4 * (x + y * 256)) as usize;
+                            if x <= 3 || x >= 252 || y <= 3 || y >= 252 {
+                                let v = ((x / 4 + y / 4) % 2) as u8;
+                                buffer[pixel_offset] = v * 0xff;
+                                buffer[pixel_offset + 1] = v * 0xff;
+                                buffer[pixel_offset + 2] = v * 0xff;
+                                buffer[pixel_offset + 3] = 0xff;
+                            } else {
+                                buffer[pixel_offset] = ((y as f32 / 255.0) * 0xFF as f32) as u8;
+                                buffer[pixel_offset + 1] = ((x as f32 / 255.0) * 0xFF as f32) as u8;
+                                buffer[pixel_offset + 2] = 0xFF - buffer[pixel_offset + 1];
+                                buffer[pixel_offset + 3] = ((x * y) % 0xFF) as u8;
+                            }
+                        }
+                    }
                 });
 
                 self.creator
@@ -925,7 +935,7 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
                 y: mouse_y,
                 wheel_dx: x * multiplier,
                 wheel_dy: y * multiplier,
-            }))
+            }));
         }
         _ => {}
     }

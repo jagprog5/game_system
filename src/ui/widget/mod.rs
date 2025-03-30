@@ -13,108 +13,69 @@ pub mod checkbox;
 pub mod button;
 pub mod sizing;
 
-use std::{num::NonZeroU32, time::Duration};
+use std::{num::NonZeroU32, time::{Duration, Instant}};
 
 use crate::{
-    core::clipping_rect::ClippingArea, ui::util::{
+    core::{clipping_rect::ClippingRect, System},
+    ui::util::{
         length::{
             clamp, AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MinLen,
             MinLenFailPolicy, PreferredPortion,
         },
         rect::FRect,
-    }
+    },
 };
 
 use super::util::rust::reborrow;
 
-/// two purposes:
-///  - used to indicate which events were not used by the UI and should be
-///    passed down to the rest of the application
-///  - used to ensure that a single widget uses an event
-#[derive(Debug, Clone, Copy)]
-pub enum ConsumedStatus {
-    /// this event has not been consumed by any widget
-    None,
-
-    /// this event has been consumed by a non-layout widget. for the most part,
-    /// it should be considered consumed, but it might still be used by layouts
-    /// (e.g. scroller). this distinction was required for nested scroll widgets
-    /// to work (a scroller's contained widget is given the opportunity to
-    /// consume events first. that way an inner scroller can consume some scroll
-    /// amount before the outer scroller. but if the child is instead something
-    /// else which would consume events and prevent a scroll, then it is
-    /// ignored)
-    ConsumedByWidget,
-
-    /// this event has been consumed by a layout, and should not be used by
-    /// anything else
-    ConsumedByLayout,
-}
-
 #[derive(Debug)]
 pub struct UIEvent {
     pub e: crate::core::event::Event,
-    consumed_status: ConsumedStatus,
+    /// two purposes:
+    ///  - used to indicate which events were not used by the UI and should be
+    ///    passed down to the rest of the application
+    ///  - used to ensure that a single widget uses an event
+    consumed: bool,
 }
 
 impl UIEvent {
     pub fn consumed(&self) -> bool {
-        match self.consumed_status {
-            ConsumedStatus::None => false,
-            _ => true,
-        }
+        self.consumed
     }
 
     pub fn available(&self) -> bool {
         !self.consumed()
     }
 
-    pub fn consumed_status(&self) -> ConsumedStatus {
-        self.consumed_status
-    }
-
     pub fn set_consumed(&mut self) {
-        self.consumed_status = ConsumedStatus::ConsumedByWidget;
-    }
-
-    pub fn set_consumed_by_layout(&mut self) {
-        debug_assert!(match self.consumed_status {
-            ConsumedStatus::ConsumedByLayout => false,
-            _ => true,
-        });
-        self.consumed_status = ConsumedStatus::ConsumedByLayout;
+        self.consumed = true;
     }
 
     pub fn new(e: crate::core::event::Event) -> Self {
-        Self {
-            e,
-            consumed_status: ConsumedStatus::None,
-        }
+        Self { e, consumed: false }
     }
 }
 
 pub struct WidgetUpdateEvent<'sdl> {
-    /// the position that this widget is at. this is NOT an sdl2::rect::FRect
-    // it's important to keep the sizing as floats as the sizing is being
-    // computed.
-    // - otherwise there's a lot of casting to and from integer. best to keep it
-    //   as floating point until just before use
-    // - started running into issues where a one pixel difference leads to a
-    //   visible jump. specifically, when a label font size changes in
-    //   horizontal layout (a one pixel in height leading to a larger difference
-    //   in width due to aspect ratio)
-    // - sdl2 has an f32 API
+    /// given the sizing information that was obtained from the widget (min,
+    /// max, etc), a position for this widget has been determined. this is where
+    /// the widget is at!
     pub position: FRect,
-    /// although the object is updated at a position, give also the clipping rect
-    /// that will be in effect once the widget is drawn
-    pub clipping_rect: ClippingArea,
+    /// the clipping rect that will be used during draw
+    ///
+    /// WidgetUpdateEvent is used during the update phase for the UI (which
+    /// occurs before draw). however some widgets also need to know what the
+    /// clipping rectangle will be during the update phase (for example, a
+    /// button which is scrolled outside of a scroller bounds will no longer be
+    /// inside the visible area and should not react to user input).
+    pub clipping_rect: ClippingRect,
     /// in the context of where this widget is in the GUI, does the width or the
     /// height have priority in regard to enforcing an aspect ratio. one length
     /// is figured out first, the the other is calculated based on the first
-    pub aspect_ratio_priority: AspectRatioPreferredDirection,
+    pub aspect_ratio_direction: AspectRatioPreferredDirection,
     /// handle all events from sdl. contains events in order of occurrence
     pub events: &'sdl mut [UIEvent],
-    /// time since previous event, or 0 if first event
+    /// time since previous event, maybe zero if first event
     pub dt: Duration,
 }
 
@@ -127,9 +88,9 @@ impl<'sdl> WidgetUpdateEvent<'sdl> {
             // output lifetime is elided - it's the re-borrowed lifetime
             position,
             clipping_rect: self.clipping_rect,
-            aspect_ratio_priority: self.aspect_ratio_priority,
+            aspect_ratio_direction: self.aspect_ratio_direction,
             events: reborrow(self.events),
-            dt: self.dt
+            dt: self.dt,
         }
     }
 
@@ -173,39 +134,45 @@ pub trait Widget<'font_data, T: crate::core::System<'font_data>> {
 
     /// implementors should use this to request an aspect ratio (additionally,
     /// the min and max should have the same ratio)
-    fn preferred_width_from_height(&self, _pref_h: f32, _sys_interface: &mut T) -> Option<Result<f32, String>> {
+    fn preferred_width_from_height(
+        &self,
+        _pref_h: f32,
+        _sys_interface: &mut T,
+    ) -> Option<Result<f32, String>> {
         None
     }
 
     /// implementors should use this to request an aspect ratio (additionally,
     /// the min and max should have the same ratio)
-    fn preferred_height_from_width(&self, _pref_w: f32, _sys_interface: &mut T) -> Option<Result<f32, String>> {
+    fn preferred_height_from_width(
+        &self,
+        _pref_w: f32,
+        _sys_interface: &mut T,
+    ) -> Option<Result<f32, String>> {
         None
     }
 
+    /// when enforcing a preferred aspect ratio, is the widget allows to exceed
+    /// the parent's boundaries?
+    ///
     /// generally this shouldn't be changed from the default implementation.
-    ///
-    /// this effects the behavior of preferred_width_from_height and
-    /// preferred_height_from_width.
-    ///
-    /// if true is returned, the output from those function is not restricted to
-    /// be within the preferred portion of the parent (unless this would
-    /// conflict with the min len)
-    fn preferred_link_allowed_exceed_portion(&self) -> bool {
+    fn preferred_ratio_exceed_parent(&self) -> bool {
         false
     }
 
     /// called for all widgets each frame before any call to draw
-    /// 
+    ///
     /// if the UI is being lazily updated - meaning that the UI is only updated
     /// and drawn once input events are received or state changes, then the
     /// screen can remain idle for a while. however this is unsuited for
     /// animations or other effects:
     ///  - true indicates that another frame should follow quickly after this
     ///  - false means don't care
-    /// 
-    /// a return value of true indicates 
-    fn update(&mut self, _event: WidgetUpdateEvent, _sys_interface: &mut T) -> Result<bool, String> {
+    fn update(
+        &mut self,
+        _event: WidgetUpdateEvent,
+        _sys_interface: &mut T,
+    ) -> Result<bool, String> {
         Ok(false)
     }
 
@@ -214,8 +181,9 @@ pub trait Widget<'font_data, T: crate::core::System<'font_data>> {
 }
 
 /// each frame after update_gui, the widget should be drawn with widget.draw()
-/// 
-/// dt is the duration since the previous frame, or 0 if it's the first frame
+///
+/// dt is the duration since the previous frame, or maybe zero if it's the first
+/// frame
 pub fn update_gui<'font_data, 'b, T: crate::core::System<'font_data> + 'b>(
     widget: &'b mut dyn Widget<'font_data, T>,
     events: &'b mut [UIEvent],
@@ -235,7 +203,7 @@ pub fn update_gui<'font_data, 'b, T: crate::core::System<'font_data> + 'b>(
         }
     };
 
-    let aspect_ratio_priority = AspectRatioPreferredDirection::default();
+    let aspect_ratio_direction = AspectRatioPreferredDirection::default();
 
     let position = place(
         widget,
@@ -245,16 +213,16 @@ pub fn update_gui<'font_data, 'b, T: crate::core::System<'font_data> + 'b>(
             w: w.get() as f32,
             h: h.get() as f32,
         },
-        aspect_ratio_priority,
+        aspect_ratio_direction,
         system,
     )?;
 
     let widget_event = WidgetUpdateEvent {
         position,
         events,
-        aspect_ratio_priority: AspectRatioPreferredDirection::default(),
-        clipping_rect: ClippingArea::None,
-        dt
+        aspect_ratio_direction: AspectRatioPreferredDirection::default(),
+        clipping_rect: ClippingRect::None,
+        dt,
     };
     widget.update(widget_event, system)
 }
@@ -264,7 +232,7 @@ pub fn update_gui<'font_data, 'b, T: crate::core::System<'font_data> + 'b>(
 pub fn place<'a, T: crate::core::System<'a>>(
     widget: &dyn Widget<'a, T>,
     parent: FRect,
-    ratio_priority: AspectRatioPreferredDirection,
+    ratio_direction: AspectRatioPreferredDirection,
     system: &mut T,
 ) -> Result<FRect, String> {
     let (max_w, max_h) = widget.max(system)?;
@@ -275,11 +243,11 @@ pub fn place<'a, T: crate::core::System<'a>>(
     let mut w = clamp(pre_clamp_w, min_w, max_w);
     let mut h = clamp(pre_clamp_h, min_h, max_h);
 
-    match ratio_priority {
+    match ratio_direction {
         AspectRatioPreferredDirection::WidthFromHeight => {
             if let Some(new_w) = widget.preferred_width_from_height(h, system) {
                 let new_w = new_w?;
-                let new_w_max_clamp = if widget.preferred_link_allowed_exceed_portion() {
+                let new_w_max_clamp = if widget.preferred_ratio_exceed_parent() {
                     max_w
                 } else {
                     max_w.strictest(MaxLen(pre_clamp_w))
@@ -290,7 +258,7 @@ pub fn place<'a, T: crate::core::System<'a>>(
         AspectRatioPreferredDirection::HeightFromWidth => {
             if let Some(new_h) = widget.preferred_height_from_width(w, system) {
                 let new_h = new_h?;
-                let new_h_max_clamp = if widget.preferred_link_allowed_exceed_portion() {
+                let new_h_max_clamp = if widget.preferred_ratio_exceed_parent() {
                     max_h
                 } else {
                     max_h.strictest(MaxLen(pre_clamp_h))
@@ -321,3 +289,71 @@ pub fn place<'a, T: crate::core::System<'a>>(
     })
 }
 
+
+#[allow(dead_code)]
+pub enum HandlerReturnValue {
+    DelayNextFrame,
+    NextFrame,
+    Stop,
+}
+
+/// a helper for the examples. but could do done in a variety of ways
+#[allow(dead_code)]
+pub fn gui_loop<'a, T: System<'a>, F>(
+    max_delay: Duration,
+    system_interface: &mut T,
+    mut handler: F,
+) -> Result<(), String>
+where
+    F: FnMut(&mut T, &mut [UIEvent], Duration) -> Result<HandlerReturnValue, String>,
+{
+    // accumulate the events for this frame
+    let mut events_accumulator: Vec<UIEvent> = Vec::new();
+
+    // use for dt calculation
+    let mut previous_handle_call = Instant::now();
+    loop {
+        let next_handle_draw_call = Instant::now();
+        let handle_result = handler(
+            system_interface,
+            &mut events_accumulator,
+            next_handle_draw_call - previous_handle_call,
+        )?;
+        previous_handle_call = next_handle_draw_call;
+
+        // handle events accumulation
+        events_accumulator.clear();
+
+        match handle_result {
+            HandlerReturnValue::Stop => return Ok(()),
+            HandlerReturnValue::DelayNextFrame | HandlerReturnValue::NextFrame => {
+                let oldest_event = if let HandlerReturnValue::DelayNextFrame = handle_result {
+                    // wait up to forever for the first event of this frame to
+                    // come in
+                    let event = system_interface.event();
+                    events_accumulator.push(UIEvent::new(event));
+                    Instant::now()
+                } else {
+                    previous_handle_call
+                };
+
+                // don't send off the event immediately! wait a bit and
+                // accumulate several events to be processed together. max bound
+                // on waiting so that the first event received isn't too stale
+
+                loop {
+                    let max_time = oldest_event + max_delay;
+                    let now = Instant::now();
+                    if max_time <= now {
+                        break; // can't wait any longer
+                    }
+
+                    let time_to_wait = max_time - now;
+                    if let Some(event) = system_interface.event_timeout(time_to_wait) {
+                        events_accumulator.push(UIEvent::new(event));
+                    }
+                }
+            }
+        };
+    }
+}

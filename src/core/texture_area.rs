@@ -4,15 +4,24 @@ use typed_floats::{NonNaNFinite, StrictlyPositiveFinite};
 
 use super::color::Color;
 
+/// has a positive area
+///
+/// in cases where there might be zero area, a Option<TextureRect> is used.
+/// inspired from rust-sdl2
+///
+/// the thinking is as follows:
+///  - better for calculating aspect ratios. can't div by 0!
+///  - better backend support. some backends just don't handle 0 correctly, so
+///    it's best to just pass values that work
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct TextureArea {
+pub struct TextureRect {
     pub x: i32,
     pub y: i32,
     pub w: NonZeroU32,
     pub h: NonZeroU32,
 }
 
-impl TextureArea {
+impl TextureRect {
     pub fn contains_point<P>(&self, point: P) -> bool
     where
         P: Into<(i32, i32)>,
@@ -22,13 +31,13 @@ impl TextureArea {
         inside_x && (y >= self.y && y < self.y + self.h.get() as i32)
     }
 
-    pub fn intersection(&self, other: Self) -> Option<TextureArea> {
+    pub fn intersection(&self, other: Self) -> Option<TextureRect> {
         let x1 = self.x.max(other.x);
         let y1 = self.y.max(other.y);
         let x2 = (self.x + self.w.get() as i32).min(other.x + other.w.get() as i32);
         let y2 = (self.y + self.h.get() as i32).min(other.y + other.h.get() as i32);
         if x1 < x2 && y1 < y2 {
-            Some(TextureArea {
+            Some(TextureRect {
                 x: x1,
                 y: y1,
                 w: NonZeroU32::new((x2 - x1) as u32)?,
@@ -52,8 +61,8 @@ pub struct TextureAreaF {
     pub h: StrictlyPositiveFinite<f32>,
 }
 
-impl From<TextureArea> for TextureAreaF {
-    fn from(value: TextureArea) -> Self {
+impl From<TextureRect> for TextureAreaF {
+    fn from(value: TextureRect) -> Self {
         unsafe {
             TextureAreaF {
                 x: NonNaNFinite::<f32>::new_unchecked(value.x as f32),
@@ -93,11 +102,11 @@ pub struct TextureRotationF {
 pub enum TextureSource {
     #[default]
     WholeTexture,
-    Area(TextureArea),
+    Area(TextureRect),
 }
 
-impl From<TextureArea> for TextureSource {
-    fn from(value: TextureArea) -> Self {
+impl From<TextureRect> for TextureSource {
+    fn from(value: TextureRect) -> Self {
         Self::Area(value)
     }
 }
@@ -115,12 +124,12 @@ impl From<TextureAreaF> for TextureSourceF {
     }
 }
 
-pub struct TextureDestination(pub TextureArea, pub Option<TextureRotation>, pub Color);
+pub struct TextureDestination(pub TextureRect, pub Option<TextureRotation>, pub Color);
 
 pub struct TextureDestinationF(pub TextureAreaF, pub Option<TextureRotationF>, pub Color);
 
-impl From<TextureArea> for TextureDestination {
-    fn from(area: TextureArea) -> Self {
+impl From<TextureRect> for TextureDestination {
+    fn from(area: TextureRect) -> Self {
         TextureDestination(
             area,
             None,

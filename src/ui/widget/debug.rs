@@ -1,11 +1,16 @@
 use crate::{
-    core::{event::Event, texture_area::{TextureArea, TextureSource}, Texture}, ui::util::{
+    core::{
+        event::Event,
+        texture_area::{TextureRect, TextureSource},
+        TextureHandle,
+    },
+    ui::util::{
         length::{
             AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy,
             PreferredPortion,
         },
         rect::FRect,
-    }
+    },
 };
 
 use super::{sizing::CustomSizing, Widget, WidgetUpdateEvent};
@@ -51,7 +56,11 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Debug {
         (self.sizing.preferred_w, self.sizing.preferred_h)
     }
 
-    fn preferred_width_from_height(&self, pref_h: f32, _sys_interface: &mut T) -> Option<Result<f32, String>> {
+    fn preferred_width_from_height(
+        &self,
+        pref_h: f32,
+        _sys_interface: &mut T,
+    ) -> Option<Result<f32, String>> {
         let ratio = match &self.sizing.preferred_aspect_ratio {
             None => return None,
             Some(v) => v,
@@ -62,7 +71,11 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Debug {
         )))
     }
 
-    fn preferred_height_from_width(&self, pref_w: f32, _sys_interface: &mut T) -> Option<Result<f32, String>> {
+    fn preferred_height_from_width(
+        &self,
+        pref_w: f32,
+        _sys_interface: &mut T,
+    ) -> Option<Result<f32, String>> {
         let ratio = match &self.sizing.preferred_aspect_ratio {
             None => return None,
             Some(v) => v,
@@ -77,7 +90,7 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Debug {
         self.clicked_this_frame = false; // reset each frame
         self.draw_pos = event.position;
 
-        let pos: Option<TextureArea> = event.position.into();
+        let pos: Option<TextureRect> = event.position.into();
         let pos = match pos {
             Some(v) => v,
             None => return Ok(false), // only functionality is being clicked
@@ -101,7 +114,7 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Debug {
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {
         // as always, snap to integer grid before rendering / using,
         // plus checks that draw area is non-zero
-        let pos: Option<crate::core::texture_area::TextureArea> = self.draw_pos.into();
+        let pos: Option<crate::core::texture_area::TextureRect> = self.draw_pos.into();
         let pos = match pos {
             Some(v) => v,
             None => return Ok(()),

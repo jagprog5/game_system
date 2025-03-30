@@ -5,14 +5,20 @@ use std::{num::NonZero, path::Path, time::Duration};
 
 use game_system::core::color::Color;
 use game_system::core::event::Event;
-use game_system::core::texture_area::{TextureArea, TextureDestination};
-use game_system::core::{LoopingSoundHandle, Texture};
+use game_system::core::texture_area::{TextureDestination, TextureRect};
+use game_system::core::{LoopingSoundHandle, TextureHandle};
 
-fn do_test<'a, T: game_system::core::System<'a>>(font_file_content: &'a [u8]) -> Result<(), String> {
+fn do_test<'a, T: game_system::core::System<'a>>(
+    font_file_content: &'a [u8],
+) -> Result<(), String> {
     let mut system = T::new(None, font_file_content)?;
     system.present()?;
     std::thread::sleep(Duration::from_millis(500));
-    system.recreate_window(Some(("test", 800.try_into().unwrap(), 600.try_into().unwrap())))?;
+    system.recreate_window(Some((
+        "test",
+        800.try_into().unwrap(),
+        600.try_into().unwrap(),
+    )))?;
     system.present()?;
     std::thread::sleep(Duration::from_millis(500));
     system.recreate_window(None)?;
@@ -28,33 +34,38 @@ fn do_test<'a, T: game_system::core::System<'a>>(font_file_content: &'a [u8]) ->
 
         // top right, copy with no rotation and simple scaling
         test_texture.copy(
-            TextureArea {
+            TextureRect {
                 x: 0,
                 y: 0,
                 w: test_texture_size.0,
                 h: test_texture_size.1,
             },
             TextureDestination(
-                TextureArea {
+                TextureRect {
                     x: window_size.0.get() as i32 - 200,
                     y: 0,
                     w: 200.try_into().unwrap(),
                     h: 200.try_into().unwrap(),
                 },
                 None,
-                Color{ r: 255, g: 0, b: 255, a: 255 },
+                Color {
+                    r: 255,
+                    g: 0,
+                    b: 255,
+                    a: 255,
+                },
             ),
         )?;
 
         // top left, copy with no rotation and smooth scaling
         test_texture.copy(
-            TextureArea {
+            TextureRect {
                 x: 0,
                 y: 0,
                 w: test_texture_size.0,
                 h: test_texture_size.1,
             },
-            TextureArea {
+            TextureRect {
                 x: 0,
                 y: 0,
                 w: 400.try_into().unwrap(),
@@ -65,7 +76,9 @@ fn do_test<'a, T: game_system::core::System<'a>>(font_file_content: &'a [u8]) ->
 
     {
         let mut test_text = system.text(
-            "press escape after sounds".try_into().map_err(|()| "zero length string".to_owned())?,
+            "press escape after sounds"
+                .try_into()
+                .map_err(|()| "zero length string".to_owned())?,
             NonZero::new(64).unwrap(),
             None,
         )?;
@@ -74,13 +87,13 @@ fn do_test<'a, T: game_system::core::System<'a>>(font_file_content: &'a [u8]) ->
 
         // bottom left, copy with no rotation and smooth scaling
         test_text.copy(
-            TextureArea {
+            TextureRect {
                 x: 0,
                 y: 0,
                 w: test_texture_size.0,
                 h: test_texture_size.1,
             },
-            TextureArea {
+            TextureRect {
                 x: 0,
                 y: 400.try_into().unwrap(),
                 w: test_texture_size.0,

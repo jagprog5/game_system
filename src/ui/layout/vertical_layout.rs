@@ -1,8 +1,8 @@
 use crate::ui::{
     util::length::{
-            clamp, place, MaxLen, MaxLenFailPolicy, MaxLenPolicy, MinLen, MinLenFailPolicy,
-            MinLenPolicy, PreferredPortion,
-        },
+        clamp, place, MaxLen, MaxLenFailPolicy, MaxLenPolicy, MinLen, MinLenFailPolicy,
+        MinLenPolicy, PreferredPortion,
+    },
     widget::{Widget, WidgetUpdateEvent},
 };
 
@@ -33,6 +33,9 @@ pub struct VerticalLayout<'font_data, 'b, T: crate::core::System<'font_data> + '
     pub elems: Vec<Box<dyn Widget<'font_data, T> + 'b>>,
     /// reverse the order IN TIME that elements are updated and drawn in. this
     /// does not affect the placement of elements in space
+    ///
+    /// this allows dependent widgets to be updated in the correct order within
+    /// the same frame
     pub reverse: bool,
     pub preferred_w: PreferredPortion,
     pub preferred_h: PreferredPortion,
@@ -165,7 +168,11 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for VerticalLayout<'a, 'b
         self.max_h_fail_policy
     }
 
-    fn update(&mut self, mut event: WidgetUpdateEvent, sys_interface: &mut T) -> Result<bool, String> {
+    fn update(
+        &mut self,
+        mut event: WidgetUpdateEvent,
+        sys_interface: &mut T,
+    ) -> Result<bool, String> {
         if self.elems.is_empty() {
             return Ok(false);
         }
@@ -223,19 +230,6 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for VerticalLayout<'a, 'b
             take_deficit(&mut info, deficit);
         }
 
-        if self.elems.len() == 1 {
-            let position = crate::ui::widget::place(
-                self.elems[0].as_mut(),
-                event.position,
-                crate::ui::util::length::AspectRatioPreferredDirection::WidthFromHeight,
-                sys_interface
-            )?;
-            let mut sub_event = event.sub_event(position);
-            sub_event.aspect_ratio_priority =
-                crate::ui::util::length::AspectRatioPreferredDirection::WidthFromHeight;
-            return self.elems[0].update(sub_event, sys_interface);
-        }
-
         let mut sum_display_height = 0f32;
         for info in info.iter() {
             sum_display_height += info.height;
@@ -243,14 +237,14 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for VerticalLayout<'a, 'b
 
         let vertical_space = if sum_display_height < event.position.h {
             let extra_space = event.position.h - sum_display_height;
-            debug_assert!(!self.elems.is_empty());
-            let num_spaces = self.elems.len() as u32 - 1;
-
-            // store as float -> extremely important. or else a divide could
-            // truncate spaces and lead to weird positions over several elements
-            debug_assert!(num_spaces != 0);
-            
-            extra_space / num_spaces as f32
+            if self.elems.len() <= 1 {
+                0.
+            } else {
+                let num_spaces = self.elems.len() as u32 - 1;
+                // store as float -> extremely important. or else a divide could
+                // truncate spaces and lead to weird positions over several elements
+                extra_space / num_spaces as f32
+            }
         } else {
             0.
         };
@@ -320,7 +314,7 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for VerticalLayout<'a, 'b
             let mut width = clamp(pre_clamp_width, info.min_horizontal, info.max_horizontal);
             if let Some(new_w) = elem.preferred_width_from_height(info.height, sys_interface) {
                 let new_w = new_w?;
-                let new_w_max_clamp = if elem.preferred_link_allowed_exceed_portion() {
+                let new_w_max_clamp = if elem.preferred_ratio_exceed_parent() {
                     info.max_horizontal
                 } else {
                     info.max_horizontal.strictest(MaxLen(pre_clamp_width))
@@ -341,7 +335,7 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for VerticalLayout<'a, 'b
                 w: width,
                 h: info.height,
             });
-            sub_event.aspect_ratio_priority =
+            sub_event.aspect_ratio_direction =
                 crate::ui::util::length::AspectRatioPreferredDirection::WidthFromHeight;
             let elem_request_another_frame = elem.update(sub_event, sys_interface)?;
             any_request_another_frame |= elem_request_another_frame;
@@ -353,10 +347,7 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for VerticalLayout<'a, 'b
         Ok(any_request_another_frame)
     }
 
-    fn draw(
-        &self,
-        sys_interface: &mut T,
-    ) -> Result<(), String> {
+    fn draw(&self, sys_interface: &mut T) -> Result<(), String> {
         for e in self.elems.iter() {
             e.draw(sys_interface)?;
         }
@@ -364,8 +355,7 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for VerticalLayout<'a, 'b
     }
 }
 
-#[derive(Clone, Copy)]
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 struct ChildInfo {
     preferred_vertical: PreferredPortion,
     max_vertical: f32,
@@ -378,7 +368,6 @@ struct ChildInfo {
     max_horizontal: MaxLen,
     min_horizontal: MinLen,
 }
-
 
 /// given some amount of excess length, distributed to all components in a way
 /// that respects the minimum and distributes the length equally by component

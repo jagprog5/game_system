@@ -2,8 +2,8 @@ use std::{num::NonZeroU32, path::PathBuf};
 
 use crate::{
     core::{
-        texture_area::{TextureArea, TextureSource},
-        Texture,
+        texture_area::{TextureRect, TextureSource},
+        TextureHandle,
     },
     ui::util::{
         length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
@@ -11,10 +11,7 @@ use crate::{
     },
 };
 
-use super::{
-    sizing::NestedContentSizing,
-    Widget, WidgetUpdateEvent,
-};
+use super::{sizing::NestedContentSizing, Widget, WidgetUpdateEvent};
 
 /// contains:
 ///  - optional background texture
@@ -59,14 +56,19 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Background<'font_d
 impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Widget<'font_data, T>
     for Background<'font_data, 'b, T>
 {
-    fn update(&mut self, mut event: WidgetUpdateEvent, sys_interface: &mut T) -> Result<bool, String> {
+    fn update(
+        &mut self,
+        mut event: WidgetUpdateEvent,
+        sys_interface: &mut T,
+    ) -> Result<bool, String> {
         self.background_draw_pos = event.position;
-        self.sizing.update_contained(self.contained.as_mut(), &mut event, sys_interface)
+        self.sizing
+            .update_contained(self.contained.as_mut(), &mut event, sys_interface)
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {
         if let Some((txt_path, maybe_txt_src)) = &self.background {
-            let pos: Option<TextureArea> = self.background_draw_pos.into();
+            let pos: Option<TextureRect> = self.background_draw_pos.into();
             if let Some(pos) = pos {
                 let pos_width = pos.w.get() as i32;
                 let pos_height = pos.h.get() as i32;
@@ -100,13 +102,13 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Widget<'font_data,
                             if width_left >= txt_size.0 {
                                 // enough space for whole tile
                                 txt.copy(
-                                    TextureArea {
+                                    TextureRect {
                                         x: txt_position.0,
                                         y: txt_position.1,
                                         w: txt_size_safe.0,
                                         h: txt_size_safe.1,
                                     },
-                                    TextureArea {
+                                    TextureRect {
                                         x: x_start + pos.x,
                                         y: y_start + pos.y,
                                         w: txt_size_safe.0,
@@ -117,13 +119,13 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Widget<'font_data,
                                 // not enough space for whole width
                                 if let Some(width_left_safe) = NonZeroU32::new(width_left as u32) {
                                     txt.copy(
-                                        TextureArea {
+                                        TextureRect {
                                             x: txt_position.0,
                                             y: txt_position.1,
                                             w: width_left_safe,
                                             h: txt_size_safe.1,
                                         },
-                                        TextureArea {
+                                        TextureRect {
                                             x: x_start + pos.x,
                                             y: y_start + pos.y,
                                             w: width_left_safe,
@@ -144,13 +146,13 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Widget<'font_data,
                                 if width_left >= txt_size.0 {
                                     // enough for width
                                     txt.copy(
-                                        TextureArea {
+                                        TextureRect {
                                             x: txt_position.0,
                                             y: txt_position.1,
                                             w: txt_size_safe.0,
                                             h: height_left_safe,
                                         },
-                                        TextureArea {
+                                        TextureRect {
                                             x: x_start + pos.x,
                                             y: y_start + pos.y,
                                             w: txt_size_safe.0,
@@ -163,13 +165,13 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Widget<'font_data,
                                         NonZeroU32::new(width_left as u32)
                                     {
                                         txt.copy(
-                                            TextureArea {
+                                            TextureRect {
                                                 x: txt_position.0,
                                                 y: txt_position.1,
                                                 w: width_left_safe,
                                                 h: height_left_safe,
                                             },
-                                            TextureArea {
+                                            TextureRect {
                                                 x: x_start + pos.x,
                                                 y: y_start + pos.y,
                                                 w: width_left_safe,
@@ -237,7 +239,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Widget<'font_data,
             .preferred_height_from_width(self.contained.as_ref(), pref_w, sys_interface)
     }
 
-    fn preferred_link_allowed_exceed_portion(&self) -> bool {
+    fn preferred_ratio_exceed_parent(&self) -> bool {
         self.sizing
             .preferred_link_allowed_exceed_portion(self.contained.as_ref())
     }

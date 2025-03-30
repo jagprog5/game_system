@@ -1,21 +1,16 @@
 use std::{cell::Cell, num::NonZeroU32, path::Path, time::Duration};
 
-use example_common::gui_loop::{gui_loop, HandlerReturnValue};
 use game_system::{
-    core::{
-        color::Color,
-        texture_area::TextureArea,
-    },
+    core::{color::Color, texture_area::TextureRect},
     ui::{
         util::length::PreferredPortion,
         widget::{
-            background::Background, checkbox::CheckBox, sizing::{CustomSizing, NestedContentSizing}, update_gui, Widget
+            background::Background, checkbox::CheckBox, gui_loop, sizing::{CustomSizing, NestedContentSizing}, update_gui, HandlerReturnValue, Widget
         },
     },
 };
 
-#[path = "example_common/mod.rs"]
-mod example_common;
+
 
 fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
     font_file_content: &'font_data [u8],
@@ -53,25 +48,25 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         64.0.into(),
         &checked,
         &changed,
-        TextureArea {
+        TextureRect {
             x: 16 * 0,
             y: 0,
             w: sixteen,
             h: sixteen,
         },
-        TextureArea {
+        TextureRect {
             x: 16 * 1,
             y: 0,
             w: sixteen,
             h: sixteen,
         },
-        TextureArea {
+        TextureRect {
             x: 16 * 2,
             y: 0,
             w: sixteen,
             h: sixteen,
         },
-        TextureArea {
+        TextureRect {
             x: 16 * 3,
             y: 0,
             w: sixteen,
@@ -83,12 +78,16 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     background_sizing.preferred_h = PreferredPortion(0.75);
     background_sizing.preferred_w = PreferredPortion(0.75);
     let mut background = Background::<'font_data, '_, T>::new(
-        Some((background_path, TextureArea {
-            x: 0,
-            y: 0,
-            w: sixteen,
-            h: sixteen,
-        }.into())),
+        Some((
+            background_path,
+            TextureRect {
+                x: 0,
+                y: 0,
+                w: sixteen,
+                h: sixteen,
+            }
+            .into(),
+        )),
         Box::new(checkbox),
     );
     background.sizing = NestedContentSizing::Custom(background_sizing);

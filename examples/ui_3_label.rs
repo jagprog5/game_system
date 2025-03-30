@@ -1,6 +1,5 @@
 use std::{cell::Cell, time::Duration};
 
-use example_common::gui_loop::{gui_loop, HandlerReturnValue};
 use game_system::{
     core::color::Color,
     ui::{
@@ -10,13 +9,12 @@ use game_system::{
             rust::CellRefOrCell,
         },
         widget::{
-            multi_line_label::{MultiLineLabel, MultiLineMinHeightFailPolicy}, single_line_label::SingleLineLabel, texture::AspectRatioFailPolicy, update_gui, Widget
+            gui_loop, multi_line_label::{MultiLineLabel, MultiLineMinHeightFailPolicy}, single_line_label::SingleLineLabel, texture::AspectRatioFailPolicy, update_gui, HandlerReturnValue, Widget
         },
     },
 };
 
-#[path = "example_common/mod.rs"]
-mod example_common;
+
 
 fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
     font_file_content: &'font_data [u8],
@@ -72,7 +70,12 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     let mut multiline_widget = MultiLineLabel::new(
         multiline_string_displayed.into(),
         20.try_into().unwrap(),
-        Color { r: 0xFF, g: 0xFF, b: 0xFF, a: 0xFF },
+        Color {
+            r: 0xFF,
+            g: 0xFF,
+            b: 0xFF,
+            a: 0xFF,
+        },
     );
     multiline_widget.min_h_policy = MultiLineMinHeightFailPolicy::CutOff(1.0);
     multiline_widget.max_h_policy = MaxLenFailPolicy::NEGATIVE;
@@ -91,7 +94,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
             match e.e {
                 game_system::core::event::Event::Window(window) => {
                     top_label_text.set(format!("{}x{}", window.width.get(), window.height.get()));
-                },
+                }
                 _ => {}
             }
         }

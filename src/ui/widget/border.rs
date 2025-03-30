@@ -3,8 +3,8 @@ use std::{num::NonZeroU32, path::PathBuf};
 use crate::{
     core::{
         color::Color,
-        texture_area::{TextureArea, TextureDestination, TextureRotation},
-        Texture,
+        texture_area::{TextureDestination, TextureRect, TextureRotation},
+        TextureHandle,
     },
     ui::util::{
         length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
@@ -23,14 +23,16 @@ use super::{Widget, WidgetUpdateEvent};
 pub struct Border<'font_data, 'b, T: crate::core::System<'font_data> + 'b> {
     pub contained: Box<dyn Widget<'font_data, T> + 'b>,
 
-    // scale not supported. for details, see ui::widget::Background
-
+    // scale not supported. for details, see
+    // game_system::ui::widget::background::Background
+    //
+    // pub scale: NonZeroU32,
     /// path to length texture
     pub texture_path: PathBuf,
     /// it must be oriented so the length extends left
     /// to right, and the top is the innermost part of the border
-    pub length_texture_src: TextureArea,
-    pub corner_texture_src: TextureArea,
+    pub length_texture_src: TextureRect,
+    pub corner_texture_src: TextureRect,
 
     /// store state for draw from update
     border_draw_pos: FRect,
@@ -40,8 +42,8 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Border<'font_data,
     pub fn new(
         contained: Box<dyn Widget<'font_data, T> + 'b>,
         texture_path: PathBuf,
-        length_texture_src: TextureArea,
-        corner_texture_src: TextureArea,
+        length_texture_src: TextureRect,
+        corner_texture_src: TextureRect,
     ) -> Self {
         Self {
             contained,
@@ -60,7 +62,11 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
         self.contained.preferred_portion()
     }
 
-    fn preferred_width_from_height(&self, pref_h: f32, sys_interface: &mut T) -> Option<Result<f32, String>> {
+    fn preferred_width_from_height(
+        &self,
+        pref_h: f32,
+        sys_interface: &mut T,
+    ) -> Option<Result<f32, String>> {
         let sub_amount = self.length_texture_src.h.get() * 2; // * 2 for each side
         let sub_amount = sub_amount as f32;
         // subtract border width from the pref input before passing to the
@@ -77,7 +83,11 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
             .map(|some| some.map(|ok| ok + amount_subtracted))
     }
 
-    fn preferred_height_from_width(&self, pref_w: f32, sys_interface: &mut T) -> Option<Result<f32, String>> {
+    fn preferred_height_from_width(
+        &self,
+        pref_w: f32,
+        sys_interface: &mut T,
+    ) -> Option<Result<f32, String>> {
         let sub_amount = self.length_texture_src.h.get() * 2; // * 2 for each side
         let sub_amount = sub_amount as f32;
         // subtract border width from the pref input before passing to the
@@ -94,8 +104,8 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
             .map(|some| some.map(|ok| ok + amount_subtracted))
     }
 
-    fn preferred_link_allowed_exceed_portion(&self) -> bool {
-        self.contained.preferred_link_allowed_exceed_portion()
+    fn preferred_ratio_exceed_parent(&self) -> bool {
+        self.contained.preferred_ratio_exceed_parent()
     }
 
     fn min_w_fail_policy(&self) -> MinLenFailPolicy {
@@ -128,7 +138,11 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
         Ok((m.0.combined(baseline), m.1.combined(baseline)))
     }
 
-    fn update(&mut self, mut event: WidgetUpdateEvent, sys_interface: &mut T) -> Result<bool, String> {
+    fn update(
+        &mut self,
+        mut event: WidgetUpdateEvent,
+        sys_interface: &mut T,
+    ) -> Result<bool, String> {
         self.border_draw_pos = event.position;
         let style_width = (self.length_texture_src.h.get()) as f32;
         let position_for_child = crate::ui::util::rect::FRect {
@@ -137,13 +151,14 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
             w: event.position.w - style_width * 2.,
             h: event.position.h - style_width * 2., // deliberately allow negative
         };
-        self.contained.update(event.sub_event(position_for_child), sys_interface)
+        self.contained
+            .update(event.sub_event(position_for_child), sys_interface)
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {
         self.contained.draw(sys_interface)?;
 
-        let maybe_pos: Option<TextureArea> = self.border_draw_pos.into();
+        let maybe_pos: Option<TextureRect> = self.border_draw_pos.into();
 
         if let Some(pos) = maybe_pos {
             // draw border if non empty position
@@ -156,7 +171,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                     if top_amount_left > self.length_texture_src.w.get() {
                         txt.copy(
                             self.length_texture_src,
-                            TextureArea {
+                            TextureRect {
                                 x: x_offset,
                                 y: pos.y,
                                 w: self.length_texture_src.w,
@@ -169,13 +184,13 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                         match NonZeroU32::new(top_amount_left) {
                             Some(top_amount_left) => {
                                 txt.copy(
-                                    TextureArea {
+                                    TextureRect {
                                         x: self.length_texture_src.x,
                                         y: self.length_texture_src.y,
                                         w: top_amount_left,
                                         h: self.length_texture_src.h,
                                     },
-                                    TextureArea {
+                                    TextureRect {
                                         x: x_offset,
                                         y: pos.y,
                                         w: top_amount_left,
@@ -199,9 +214,10 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                         txt.copy(
                             self.length_texture_src,
                             TextureDestination(
-                                TextureArea {
+                                TextureRect {
                                     x: x_offset,
-                                    y: pos.y + pos.h.get() as i32 - self.length_texture_src.h.get() as i32,
+                                    y: pos.y + pos.h.get() as i32
+                                        - self.length_texture_src.h.get() as i32,
                                     w: self.length_texture_src.w,
                                     h: self.length_texture_src.h,
                                 },
@@ -225,16 +241,17 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                         match NonZeroU32::new(bottom_amount_left) {
                             Some(bottom_amount_left) => {
                                 txt.copy(
-                                    TextureArea {
+                                    TextureRect {
                                         x: self.length_texture_src.x,
                                         y: self.length_texture_src.y,
                                         w: bottom_amount_left,
                                         h: self.length_texture_src.h,
                                     },
                                     TextureDestination(
-                                        TextureArea {
+                                        TextureRect {
                                             x: x_offset,
-                                            y: pos.y + pos.h.get() as i32 - self.length_texture_src.h.get() as i32,
+                                            y: pos.y + pos.h.get() as i32
+                                                - self.length_texture_src.h.get() as i32,
                                             w: bottom_amount_left,
                                             h: self.length_texture_src.h,
                                         },
@@ -269,7 +286,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                         txt.copy(
                             self.length_texture_src,
                             TextureDestination(
-                                TextureArea {
+                                TextureRect {
                                     x: pos.x + pos.w.get() as i32,
                                     y: y_offset,
                                     w: self.length_texture_src.w,
@@ -277,7 +294,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                                 },
                                 Some(TextureRotation {
                                     angle: 90.try_into().unwrap(),
-                                    point: Some((0,0)),
+                                    point: Some((0, 0)),
                                     flip_horizontal: false,
                                     flip_vertical: false,
                                 }),
@@ -295,14 +312,14 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                         match NonZeroU32::new(right_amount_left) {
                             Some(right_amount_left) => {
                                 txt.copy(
-                                    TextureArea {
+                                    TextureRect {
                                         x: self.length_texture_src.x,
                                         y: self.length_texture_src.y,
                                         w: right_amount_left,
                                         h: self.length_texture_src.h,
                                     },
                                     TextureDestination(
-                                        TextureArea {
+                                        TextureRect {
                                             x: pos.x + pos.w.get() as i32,
                                             y: y_offset,
                                             w: right_amount_left,
@@ -310,7 +327,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                                         },
                                         Some(TextureRotation {
                                             angle: 90.try_into().unwrap(),
-                                            point: Some((0,0)),
+                                            point: Some((0, 0)),
                                             flip_horizontal: false,
                                             flip_vertical: false,
                                         }),
@@ -339,7 +356,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                         txt.copy(
                             self.length_texture_src,
                             TextureDestination(
-                                TextureArea {
+                                TextureRect {
                                     x: pos.x + self.length_texture_src.h.get() as i32,
                                     y: y_offset,
                                     w: self.length_texture_src.w,
@@ -347,7 +364,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                                 },
                                 Some(TextureRotation {
                                     angle: 90.try_into().unwrap(),
-                                    point: Some((0,0)),
+                                    point: Some((0, 0)),
                                     flip_horizontal: false,
                                     flip_vertical: true,
                                 }),
@@ -365,14 +382,14 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                         match NonZeroU32::new(left_amount_left) {
                             Some(left_amount_left) => {
                                 txt.copy(
-                                    TextureArea {
+                                    TextureRect {
                                         x: self.length_texture_src.x,
                                         y: self.length_texture_src.y,
                                         w: left_amount_left,
                                         h: self.length_texture_src.h,
                                     },
                                     TextureDestination(
-                                        TextureArea {
+                                        TextureRect {
                                             x: pos.x + self.length_texture_src.h.get() as i32,
                                             y: y_offset,
                                             w: left_amount_left,
@@ -380,7 +397,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                                         },
                                         Some(TextureRotation {
                                             angle: 90.try_into().unwrap(),
-                                            point: Some((0,0)),
+                                            point: Some((0, 0)),
                                             flip_horizontal: false,
                                             flip_vertical: true,
                                         }),
@@ -401,69 +418,87 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
             }
 
             // corners
-            txt.copy(self.corner_texture_src, TextureArea {
-                x: pos.x + pos.w.get() as i32 - self.length_texture_src.h.get() as i32,
-                y: pos.y,
-                w: self.corner_texture_src.w,
-                h: self.corner_texture_src.h,
-            })?;
+            txt.copy(
+                self.corner_texture_src,
+                TextureRect {
+                    x: pos.x + pos.w.get() as i32 - self.length_texture_src.h.get() as i32,
+                    y: pos.y,
+                    w: self.corner_texture_src.w,
+                    h: self.corner_texture_src.h,
+                },
+            )?;
 
-            txt.copy(self.corner_texture_src, TextureDestination(TextureArea {
-                x: pos.x,
-                y: pos.y,
-                w: self.corner_texture_src.w,
-                h: self.corner_texture_src.h,
-            },
-            Some(TextureRotation {
-                angle: 0.try_into().unwrap(),
-                point: None,
-                flip_horizontal: true,
-                flip_vertical: false,
-            }),
-            Color {
-                r: 0xFF,
-                g: 0xFF,
-                b: 0xFF,
-                a: 0xFF,
-            }))?;
+            txt.copy(
+                self.corner_texture_src,
+                TextureDestination(
+                    TextureRect {
+                        x: pos.x,
+                        y: pos.y,
+                        w: self.corner_texture_src.w,
+                        h: self.corner_texture_src.h,
+                    },
+                    Some(TextureRotation {
+                        angle: 0.try_into().unwrap(),
+                        point: None,
+                        flip_horizontal: true,
+                        flip_vertical: false,
+                    }),
+                    Color {
+                        r: 0xFF,
+                        g: 0xFF,
+                        b: 0xFF,
+                        a: 0xFF,
+                    },
+                ),
+            )?;
 
-            txt.copy(self.corner_texture_src, TextureDestination(TextureArea {
-                x: pos.x + pos.w.get() as i32 - self.length_texture_src.h.get() as i32,
-                y: pos.y + pos.h.get() as i32 - self.length_texture_src.h.get() as i32,
-                w: self.corner_texture_src.w,
-                h: self.corner_texture_src.h,
-            },
-            Some(TextureRotation {
-                angle: 0.try_into().unwrap(),
-                point: None,
-                flip_horizontal: false,
-                flip_vertical: true,
-            }),
-            Color {
-                r: 0xFF,
-                g: 0xFF,
-                b: 0xFF,
-                a: 0xFF,
-            }))?;
+            txt.copy(
+                self.corner_texture_src,
+                TextureDestination(
+                    TextureRect {
+                        x: pos.x + pos.w.get() as i32 - self.length_texture_src.h.get() as i32,
+                        y: pos.y + pos.h.get() as i32 - self.length_texture_src.h.get() as i32,
+                        w: self.corner_texture_src.w,
+                        h: self.corner_texture_src.h,
+                    },
+                    Some(TextureRotation {
+                        angle: 0.try_into().unwrap(),
+                        point: None,
+                        flip_horizontal: false,
+                        flip_vertical: true,
+                    }),
+                    Color {
+                        r: 0xFF,
+                        g: 0xFF,
+                        b: 0xFF,
+                        a: 0xFF,
+                    },
+                ),
+            )?;
 
-            txt.copy(self.corner_texture_src, TextureDestination(TextureArea {
-                x: pos.x,
-                y: pos.y + pos.h.get() as i32 - self.length_texture_src.h.get() as i32,
-                w: self.corner_texture_src.w,
-                h: self.corner_texture_src.h,
-            },
-            Some(TextureRotation {
-                angle: 0.try_into().unwrap(),
-                point: None,
-                flip_horizontal: true,
-                flip_vertical: true,
-            }),
-            Color {
-                r: 0xFF,
-                g: 0xFF,
-                b: 0xFF,
-                a: 0xFF,
-            }))?;
+            txt.copy(
+                self.corner_texture_src,
+                TextureDestination(
+                    TextureRect {
+                        x: pos.x,
+                        y: pos.y + pos.h.get() as i32 - self.length_texture_src.h.get() as i32,
+                        w: self.corner_texture_src.w,
+                        h: self.corner_texture_src.h,
+                    },
+                    Some(TextureRotation {
+                        angle: 0.try_into().unwrap(),
+                        point: None,
+                        flip_horizontal: true,
+                        flip_vertical: true,
+                    }),
+                    Color {
+                        r: 0xFF,
+                        g: 0xFF,
+                        b: 0xFF,
+                        a: 0xFF,
+                    },
+                ),
+            )?;
         }
         Ok(())
     }

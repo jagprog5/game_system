@@ -14,9 +14,9 @@ pub fn capped_next_power_of_two(n: NonZeroU16) -> NonZeroU16 {
     unsafe {
         NonZeroU16::new_unchecked(match leading {
             // 0000 0000 0000 0000
-            // 16 => <handled above>
+            // 16 => <never since nonzero>
             // 0000 0000 0000 0001
-            // 15 => <handled above>
+            // 15 => <handled above since 15 leading zeros in u16 type is 1, which is a power of 2>
             // 0000 0000 0000 0011
             14 => 4,
             // 0000 0000 0000 0111
@@ -35,5 +35,62 @@ pub fn capped_next_power_of_two(n: NonZeroU16) -> NonZeroU16 {
             // this size of font would be ridiculous
             _ => 4096,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        assert_eq!(
+            capped_next_power_of_two(1.try_into().unwrap()),
+            1.try_into().unwrap()
+        );
+        assert_eq!(
+            capped_next_power_of_two(2.try_into().unwrap()),
+            2.try_into().unwrap()
+        );
+        assert_eq!(
+            capped_next_power_of_two(3.try_into().unwrap()),
+            4.try_into().unwrap()
+        );
+        assert_eq!(
+            capped_next_power_of_two(4.try_into().unwrap()),
+            4.try_into().unwrap()
+        );
+        assert_eq!(
+            capped_next_power_of_two(5.try_into().unwrap()),
+            8.try_into().unwrap()
+        );
+        assert_eq!(
+            capped_next_power_of_two(6.try_into().unwrap()),
+            8.try_into().unwrap()
+        );
+        assert_eq!(
+            capped_next_power_of_two(7.try_into().unwrap()),
+            8.try_into().unwrap()
+        );
+        assert_eq!(
+            capped_next_power_of_two(8.try_into().unwrap()),
+            8.try_into().unwrap()
+        );
+        assert_eq!(
+            capped_next_power_of_two(9.try_into().unwrap()),
+            16.try_into().unwrap()
+        );
+        assert_eq!(
+            capped_next_power_of_two(10.try_into().unwrap()),
+            16.try_into().unwrap()
+        );
+        assert_eq!(
+            capped_next_power_of_two(12.try_into().unwrap()),
+            16.try_into().unwrap()
+        );
+        assert_eq!(
+            capped_next_power_of_two(0xFFFF.try_into().unwrap()),
+            4096.try_into().unwrap()
+        );
     }
 }

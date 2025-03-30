@@ -1,13 +1,16 @@
 use std::{path::Path, time::Duration};
 
-use example_common::gui_loop::{gui_loop, HandlerReturnValue};
-use game_system::{core::{color::Color, texture_area::TextureArea}, ui::{
-    util::length::{MaxLen, MaxLenPolicy, MinLen, MinLenPolicy, PreferredPortion},
-    widget::{border::Border, texture::{AspectRatioFailPolicy, Texture}, update_gui, Widget},
-}};
+use game_system::{
+    core::{color::Color, texture_area::TextureRect},
+    ui::{
+        util::length::{MaxLen, MaxLenPolicy, MinLen, MinLenPolicy, PreferredPortion},
+        widget::{
+            border::Border, gui_loop, texture::{AspectRatioFailPolicy, Texture}, update_gui, HandlerReturnValue, Widget
+        },
+    },
+};
 
-#[path = "example_common/mod.rs"]
-mod example_common;
+
 
 fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
     font_file_content: &'font_data [u8],
@@ -45,17 +48,22 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     texture_widget.min_h_policy = MinLenPolicy::Literal(MinLen::LAX);
     texture_widget.max_h_policy = MaxLenPolicy::Literal(MaxLen::LAX);
 
-    let mut border = Border::new(Box::new(texture_widget), border_path, TextureArea {
-        x: 0,
-        y: 0,
-        w: 15.try_into().unwrap(),
-        h: 5.try_into().unwrap(),
-    }, TextureArea {
-        x: 16,
-        y: 0,
-        w: 5.try_into().unwrap(),
-        h: 5.try_into().unwrap(),
-    });
+    let mut border = Border::new(
+        Box::new(texture_widget),
+        border_path,
+        TextureRect {
+            x: 0,
+            y: 0,
+            w: 15.try_into().unwrap(),
+            h: 5.try_into().unwrap(),
+        },
+        TextureRect {
+            x: 16,
+            y: 0,
+            w: 5.try_into().unwrap(),
+            h: 5.try_into().unwrap(),
+        },
+    );
 
     gui_loop(DELAY, &mut system, |system, events, dt| {
         let r = update_gui(&mut border, events, system, dt)?;
@@ -66,15 +74,19 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
                 game_system::core::event::Event::Mouse(mouse_event) => {
                     if mouse_event.down && mouse_event.changed {
                         e.set_consumed(); // intentional redundant
-                        println!("nothing consumed the click! {:?}", (mouse_event.x, mouse_event.y));
+                        println!(
+                            "nothing consumed the click! {:?}",
+                            (mouse_event.x, mouse_event.y)
+                        );
                     }
-                },
+                }
                 game_system::core::event::Event::Key(key_event) => {
-                    if key_event.key == 27 { // esc
+                    if key_event.key == 27 {
+                        // esc
                         e.set_consumed(); // intentional redundant
                         return Ok(HandlerReturnValue::Stop);
                     }
-                },
+                }
                 game_system::core::event::Event::Quit => {
                     e.set_consumed(); // intentional redundant
                     return Ok(HandlerReturnValue::Stop);
@@ -83,7 +95,12 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
             }
         }
 
-        system.clear(Color { r: 0, g: 0, b: 0, a: 0xFF })?;
+        system.clear(Color {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 0xFF,
+        })?;
         border.draw(system)?;
         system.present()?;
         Ok(match r {

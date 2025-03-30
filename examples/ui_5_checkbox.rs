@@ -1,13 +1,16 @@
 use std::{cell::Cell, num::NonZeroU32, path::Path, time::Duration};
 
-use example_common::gui_loop::{gui_loop, HandlerReturnValue};
 use game_system::{
-    core::{color::Color, texture_area::TextureArea},
-    ui::{layout::scroller::Scroller, widget::{checkbox::CheckBox, sizing::{CustomSizing, NestedContentSizing}, update_gui, Widget}},
+    core::{color::Color, texture_area::TextureRect},
+    ui::{
+        layout::scroller::Scroller,
+        widget::{
+            checkbox::CheckBox, gui_loop, sizing::{CustomSizing, NestedContentSizing}, update_gui, HandlerReturnValue, Widget
+        },
+    },
 };
 
-#[path = "example_common/mod.rs"]
-mod example_common;
+
 
 fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
     font_file_content: &'font_data [u8],
@@ -45,25 +48,25 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         64.0.into(),
         &checked,
         &changed,
-        TextureArea {
+        TextureRect {
             x: 16 * 0,
             y: 0,
             w: sixteen,
             h: sixteen,
         },
-        TextureArea {
+        TextureRect {
             x: 16 * 1,
             y: 0,
             w: sixteen,
             h: sixteen,
         },
-        TextureArea {
+        TextureRect {
             x: 16 * 2,
             y: 0,
             w: sixteen,
             h: sixteen,
         },
-        TextureArea {
+        TextureRect {
             x: 16 * 3,
             y: 0,
             w: sixteen,

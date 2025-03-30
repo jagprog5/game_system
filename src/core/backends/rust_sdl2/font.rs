@@ -8,7 +8,7 @@ use sdl2::{rwops::RWops, surface::Surface, sys::SDL_Color, ttf::Sdl2TtfContext};
 
 /// my own font minimal font wrapper, largely copied from rust-sdl2. was having
 /// difficulty with lifetimes, in particular I wanted System to be a self
-/// contained struct
+/// contained (referential struct
 ///
 /// this is roughly equivalent to the "unsafe_textures" features of rust-sdl2
 pub(crate) struct Font<'rwops> {
@@ -40,6 +40,7 @@ impl<'rwops> Font<'rwops> {
         wrap_width: Option<NonZeroU32>,
     ) -> Result<sdl2::surface::Surface, String> {
         unsafe {
+            // enforced only for this backend
             let cstr = CString::new(text).map_err(|_| "render text contained null")?;
             let foreground = SDL_Color {
                 r: 0xFF,

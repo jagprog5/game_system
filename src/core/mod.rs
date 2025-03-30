@@ -9,12 +9,12 @@ use std::num::NonZeroU32;
 use std::path::Path;
 use std::time::Duration;
 
-use clipping_rect::ClippingArea;
+use clipping_rect::ClippingRect;
 use color::Color;
 use event::Event;
-use texture_area::TextureArea;
 use texture_area::TextureDestination;
 use texture_area::TextureDestinationF;
+use texture_area::TextureRect;
 use texture_area::TextureSource;
 use texture_area::TextureSourceF;
 
@@ -23,13 +23,13 @@ pub trait LoopingSoundHandle<'a>: Sized {
 }
 
 /// exposes ability to draw texture onto the screen
-pub trait Texture<'system>: Sized {
+pub trait TextureHandle<'system>: Sized {
     /// copy texture to screen. applies alpha blending
     fn copy<Src, Dst>(&mut self, src: Src, dst: Dst) -> Result<(), String>
     where
         Src: Into<TextureSource>,
         Dst: Into<TextureDestination>;
-    
+
     /// copy texture to screen. applies alpha blending
     fn copy_f<Src, Dst>(&mut self, src: Src, dst: Dst) -> Result<(), String>
     where
@@ -40,14 +40,16 @@ pub trait Texture<'system>: Sized {
     fn size(&self) -> Result<(NonZeroU32, NonZeroU32), String>;
 }
 
-/// use the system data and expose functionality
 pub trait System<'font_data>: Sized {
     type LoopingSoundHandle<'a>: crate::core::LoopingSoundHandle<'a>;
-    type Texture<'system>: crate::core::Texture<'system>
+    type ImageTextureHandle<'system>: crate::core::TextureHandle<'system>
+    where
+        Self: 'system;
+    type TextTextureHandle<'system>: crate::core::TextureHandle<'system>
     where
         Self: 'system;
 
-    /// initialize subsystems. create a vsync window
+    /// initialize everything for the game
     ///
     /// if size is none, creates a full screen vsync window resolution matching
     /// the screen
@@ -61,30 +63,35 @@ pub trait System<'font_data>: Sized {
     ) -> Result<Self, String>;
 
     /// see new()
-    fn recreate_window(&mut self, size: Option<(&str, NonZeroU32, NonZeroU32)>) -> Result<(), String>;
+    fn recreate_window(
+        &mut self,
+        size: Option<(&str, NonZeroU32, NonZeroU32)>,
+    ) -> Result<(), String>;
 
     /// the size of the window canvas, width height
     fn size(&self) -> Result<(NonZeroU32, NonZeroU32), String>;
 
-    /// set the screen to the provided color, clearing all drawing
+    /// set the screen to the provided color, clearing all drawing.
+    ///
+    /// this ignores the clipping rectangle
     fn clear(&mut self, color: Color) -> Result<(), String>;
 
     /// make the drawing appear to the screen
     fn present(&mut self) -> Result<(), String>;
 
     /// makes drawing only appear within a specified region
-    fn clip(&mut self, c: ClippingArea);
+    fn clip(&mut self, c: ClippingRect);
 
-    fn get_clip(&mut self) -> ClippingArea;
+    fn get_clip(&mut self) -> ClippingRect;
 
     /// load texture from file or reuse from (unspecified) cache. the texture
     /// instance can then be used to draw to the screen. the texture should
     /// apply nearest neighbor sampling
-    fn texture(&mut self, image_path: &Path) -> Result<Self::Texture<'_>, String>;
+    fn texture(&mut self, image_path: &Path) -> Result<Self::ImageTextureHandle<'_>, String>;
 
     /// equivalent to texture() but produce a very small software rendered
     /// texture that's built-in
-    fn missing_texture(&mut self) -> Result<Self::Texture<'_>, String>;
+    fn missing_texture(&mut self) -> Result<Self::ImageTextureHandle<'_>, String>;
 
     /// render text or reuse from (unspecified) cache. the texture instance can
     /// then be used to draw to the screen
@@ -92,14 +99,14 @@ pub trait System<'font_data>: Sized {
     /// there is no guarantee that the provided point size will be the one that
     /// is used to render the font - the output texture size is unspecified and
     /// should be scaled appropriately.
-    /// 
-    /// the texture should apply some unspecified interpolation or sampling
+    ///
+    /// the texture should apply some unspecified interpolation or smoothing
     fn text(
         &mut self,
         text: NonEmptyStr,
         point_size: NonZeroU16,
         wrap_width: Option<NonZeroU32>,
-    ) -> Result<Self::Texture<'_>, String>;
+    ) -> Result<Self::TextTextureHandle<'_>, String>;
 
     /// non blocking
     ///
@@ -121,7 +128,7 @@ pub trait System<'font_data>: Sized {
     /// the handle is meant to be managed by the single entity that is producing
     /// the sound - calls from that entity must use the same mutable handle
     /// reference and calling this will adjust the looping sound if it is
-    /// playing
+    /// playing. this function should be called each frame by that entity!
     ///
     /// fade_in_duration, if set, will only be applied if this looping sound
     /// just started playing
@@ -139,7 +146,7 @@ pub trait System<'font_data>: Sized {
     ///
     /// fades out the looping sound and stops it  
     /// this resets the handle's internal state so that if it is used in
-    /// loop_sound after being stopped, it will start up and reference a new
+    /// loop_sound() after being stopped, it will start up and reference a new
     /// looping sound
     fn stop_loop_sound<'a>(
         &mut self,
@@ -174,7 +181,7 @@ pub trait System<'font_data>: Sized {
     fn event(&mut self) -> Event;
 
     /// receive input from the user. wait a max amount of time to wait in
-    /// milliseconds (tending to round down)
+    /// milliseconds
     fn event_timeout(&mut self, timeout: Duration) -> Option<Event>;
 }
 

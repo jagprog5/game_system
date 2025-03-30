@@ -38,10 +38,7 @@ impl Strut {
 }
 
 impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Strut {
-    fn draw(
-        &self,
-        _sys_interface: &mut T
-    ) -> Result<(), String> {
+    fn draw(&self, _sys_interface: &mut T) -> Result<(), String> {
         Ok(())
     }
 

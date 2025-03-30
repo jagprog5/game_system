@@ -85,7 +85,7 @@ impl NestedContentSizing {
                 place(
                     contained,
                     event.position,
-                    event.aspect_ratio_priority,
+                    event.aspect_ratio_direction,
                     sys_interface,
                 )
             }
@@ -173,7 +173,7 @@ impl NestedContentSizing {
         contained: &dyn Widget<'font_data, T>,
     ) -> bool {
         match self {
-            NestedContentSizing::Inherit => contained.preferred_link_allowed_exceed_portion(),
+            NestedContentSizing::Inherit => contained.preferred_ratio_exceed_parent(),
             NestedContentSizing::Custom(s) => s.preferred_link_allowed_exceed_portion,
         }
     }

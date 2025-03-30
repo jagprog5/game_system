@@ -1,10 +1,8 @@
 use std::{cell::Cell, path::PathBuf};
 
 use crate::{
-    core::texture_area::TextureArea,
-    ui::util::length::{
-        MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion
-    },
+    core::texture_area::TextureRect,
+    ui::util::length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
 };
 
 use super::{sizing::NestedContentSizing, Widget, WidgetUpdateEvent};
@@ -43,7 +41,9 @@ pub struct Button<'font_data, 'b, 'state, T: crate::core::System<'font_data> + '
     state: ButtonState,
 }
 
-impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> Button<'font_data, 'b, 'state, T> {
+impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b>
+    Button<'font_data, 'b, 'state, T>
+{
     pub fn new(
         idle: Box<dyn Widget<'font_data, T> + 'b>,
         hovered: Box<dyn Widget<'font_data, T> + 'b>,
@@ -83,16 +83,17 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> Button<'fo
             ButtonInheritSizing::Idle => self.idle.as_ref(),
             ButtonInheritSizing::Hovered => self.hovered.as_ref(),
             ButtonInheritSizing::Pressed => self.pressed.as_ref(),
-            ButtonInheritSizing::Current => {
-                self.current_widget()
-            },
+            ButtonInheritSizing::Current => self.current_widget(),
         }
     }
 }
 
-impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> Widget<'font_data, T> for Button<'font_data, 'b, 'state, T> {
-    fn preferred_link_allowed_exceed_portion(&self) -> bool {
-        self.sizing.preferred_link_allowed_exceed_portion(self.inherit_sizing_widget())
+impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> Widget<'font_data, T>
+    for Button<'font_data, 'b, 'state, T>
+{
+    fn preferred_ratio_exceed_parent(&self) -> bool {
+        self.sizing
+            .preferred_link_allowed_exceed_portion(self.inherit_sizing_widget())
         // self.preferred_link_allowed_exceed_portion
     }
 
@@ -129,23 +130,35 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> Widget<'fo
         pref_h: f32,
         sys_interface: &mut T,
     ) -> Option<Result<f32, String>> {
-        self.sizing.preferred_width_from_height(self.inherit_sizing_widget(), pref_h, sys_interface)
+        self.sizing
+            .preferred_width_from_height(self.inherit_sizing_widget(), pref_h, sys_interface)
     }
 
-    fn preferred_height_from_width(&self, pref_w: f32, sys_interface: &mut T) -> Option<Result<f32, String>> {
-        self.sizing.preferred_height_from_width(self.inherit_sizing_widget(), pref_w, sys_interface)
+    fn preferred_height_from_width(
+        &self,
+        pref_w: f32,
+        sys_interface: &mut T,
+    ) -> Option<Result<f32, String>> {
+        self.sizing
+            .preferred_height_from_width(self.inherit_sizing_widget(), pref_w, sys_interface)
     }
 
-    fn update(&mut self, mut event: WidgetUpdateEvent, sys_interface: &mut T) -> Result<bool, String> {
+    fn update(
+        &mut self,
+        mut event: WidgetUpdateEvent,
+        sys_interface: &mut T,
+    ) -> Result<bool, String> {
         self.released.set(false);
-        let non_zero_area : TextureArea = match event.position.into() {
+        let non_zero_area: TextureRect = match event.position.into() {
             Some(v) => v,
             None => return Ok(false), // can't click or hover with zero area
         };
         for e in event.events.iter_mut().filter(|e| e.available()) {
             match e.e {
                 crate::core::event::Event::Mouse(mouse) => {
-                    if non_zero_area.contains_point((mouse.x, mouse.y)) && event.clipping_rect.contains_point((mouse.x, mouse.y)) {
+                    if non_zero_area.contains_point((mouse.x, mouse.y))
+                        && event.clipping_rect.contains_point((mouse.x, mouse.y))
+                    {
                         if !mouse.down {
                             if mouse.changed {
                                 // on falling edge
@@ -163,7 +176,7 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> Widget<'fo
                     } else {
                         self.state = ButtonState::Idle;
                     }
-                },
+                }
                 _ => {}
             }
         }

@@ -1,8 +1,17 @@
 use std::num::NonZeroU16;
 
-use crate::{core::{color::Color, texture_area::{TextureArea, TextureSource}, NonEmptyStr, Texture}, ui::util::{
-    length::{MaxLenFailPolicy, MinLenFailPolicy, PreferredPortion}, rect::rect_len_round, rust::CellRefOrCell
-}};
+use crate::{
+    core::{
+        color::Color,
+        texture_area::{TextureRect, TextureSource},
+        NonEmptyStr, TextureHandle,
+    },
+    ui::util::{
+        length::{MaxLenFailPolicy, MinLenFailPolicy, PreferredPortion},
+        rect::rect_len_round,
+        rust::CellRefOrCell,
+    },
+};
 
 use super::{Widget, WidgetUpdateEvent};
 
@@ -17,7 +26,8 @@ pub enum MultiLineMinHeightFailPolicy {
     /// allow the text to be drawn past the parent's boundary in a direction.
     /// indicate the direction
     AllowRunOff(MinLenFailPolicy),
-    /// request an appropriate height, deduced from the width and text
+    /// do not cut off the height. request an appropriate height, deduced from
+    /// the width and text
     None(MinLenFailPolicy, MaxLenFailPolicy),
 }
 
@@ -28,7 +38,7 @@ impl Default for MultiLineMinHeightFailPolicy {
 }
 
 /// a widget that contains multiline text
-/// 
+///
 /// this widget defines a height_from_width but not a width_from_height. because
 /// of this, the text will be compressed vertically when all of the following
 /// conditions are true:
@@ -36,12 +46,12 @@ impl Default for MultiLineMinHeightFailPolicy {
 ///  - MultiLineMinHeightFailPolicy::None
 ///  - lots of text: the wrapped text has a smaller aspect ratio than the parent
 ///    is giving it
-/// 
+///
 /// there's a few ways of fixing this:
 ///  - change the context. e.g. wrap the MultiLineLabel in a horizontal layout
 ///    or use ScrollAspectRatioDirectionPolicy if in a scroller
 ///  - change the other two conditions somehow
-pub struct MultiLineLabel<'state> { 
+pub struct MultiLineLabel<'state> {
     pub text: CellRefOrCell<'state, String>,
     /// a single line label infers an appropriate point size from the available
     /// height. this doesn't make sense for multiline text, so it's instead
@@ -60,11 +70,7 @@ pub struct MultiLineLabel<'state> {
 }
 
 impl<'state> MultiLineLabel<'state> {
-    pub fn new(
-        text: CellRefOrCell<'state, String>,
-        point_size: NonZeroU16,
-        color: Color,
-    ) -> Self {
+    pub fn new(text: CellRefOrCell<'state, String>, point_size: NonZeroU16, color: Color) -> Self {
         Self {
             text,
             point_size,
@@ -83,7 +89,7 @@ impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for MultiLineLabel<'s
         (self.preferred_w, self.preferred_h)
     }
 
-    fn preferred_link_allowed_exceed_portion(&self) -> bool {
+    fn preferred_ratio_exceed_parent(&self) -> bool {
         match self.min_h_policy {
             MultiLineMinHeightFailPolicy::None(_, _) => true,
             _ => false,
@@ -104,26 +110,28 @@ impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for MultiLineLabel<'s
         }
     }
 
-    fn preferred_height_from_width(&self, pref_w: f32, sys_interface: &mut T) -> Option<Result<f32, String>> {
+    fn preferred_height_from_width(
+        &self,
+        pref_w: f32,
+        sys_interface: &mut T,
+    ) -> Option<Result<f32, String>> {
         match self.min_h_policy {
-            MultiLineMinHeightFailPolicy::None(_, _) => {
-                Some((|| {
-                    let wrap_width = match rect_len_round(pref_w) {
-                        Some(v) => v,
-                        None => return Ok(0.),
-                    };
+            MultiLineMinHeightFailPolicy::None(_, _) => Some((|| {
+                let wrap_width = match rect_len_round(pref_w) {
+                    Some(v) => v,
+                    None => return Ok(0.),
+                };
 
-                    let text = self.text.scope_take();
-                    let text: NonEmptyStr = match text.as_str().try_into() {
-                        Ok(v) => v,
-                        Err(()) => return Ok(0.),
-                    };
+                let text = self.text.scope_take();
+                let text: NonEmptyStr = match text.as_str().try_into() {
+                    Ok(v) => v,
+                    Err(()) => return Ok(0.),
+                };
 
-                    let texture = sys_interface.text(text, self.point_size, Some(wrap_width))?;
-                    let size = texture.size()?;
-                    Ok(size.1.get() as f32)
-                })())
-            }
+                let texture = sys_interface.text(text, self.point_size, Some(wrap_width))?;
+                let size = texture.size()?;
+                Ok(size.1.get() as f32)
+            })()),
             _ => None,
         }
     }
@@ -134,7 +142,7 @@ impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for MultiLineLabel<'s
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {
-        let position: TextureArea = match self.draw_pos.into() {
+        let position: TextureRect = match self.draw_pos.into() {
             Some(v) => v,
             None => return Ok(()), // no input handling
         };
@@ -153,12 +161,15 @@ impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for MultiLineLabel<'s
             let excess = excess as f32;
             let excess = excess * self.max_h_policy.0;
             let excess = excess.round() as i32;
-            texture.copy(TextureSource::WholeTexture, TextureArea {
-                x: position.x,
-                y: position.y + excess,
-                w: size.0,
-                h: size.1,
-            })?;
+            texture.copy(
+                TextureSource::WholeTexture,
+                TextureRect {
+                    x: position.x,
+                    y: position.y + excess,
+                    w: size.0,
+                    h: size.1,
+                },
+            )?;
         } else {
             let excess = size.1.get() - position.h.get();
             let excess = excess as f32;
@@ -166,27 +177,33 @@ impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for MultiLineLabel<'s
                 MultiLineMinHeightFailPolicy::CutOff(v) => {
                     let excess = excess * (1. - v);
                     let excess = excess.round() as i32;
-                    texture.copy(TextureArea {
-                        x: 0,
-                        y: excess,
-                        w: size.0,
-                        h: position.h,
-                    }, TextureArea {
-                        x: position.x,
-                        y: position.y,
-                        w: size.0,
-                        h: position.h,
-                    })?
+                    texture.copy(
+                        TextureRect {
+                            x: 0,
+                            y: excess,
+                            w: size.0,
+                            h: position.h,
+                        },
+                        TextureRect {
+                            x: position.x,
+                            y: position.y,
+                            w: size.0,
+                            h: position.h,
+                        },
+                    )?
                 }
                 MultiLineMinHeightFailPolicy::AllowRunOff(v) => {
                     let excess = excess * (v.0 - 1.);
                     let excess = excess.round() as i32;
-                    texture.copy(TextureSource::WholeTexture, TextureArea {
-                        x: position.x,
-                        y: position.y + excess,
-                        w: size.0,
-                        h: size.1,
-                    })?;
+                    texture.copy(
+                        TextureSource::WholeTexture,
+                        TextureRect {
+                            x: position.x,
+                            y: position.y + excess,
+                            w: size.0,
+                            h: size.1,
+                        },
+                    )?;
                 }
                 MultiLineMinHeightFailPolicy::None(_, _) => {
                     texture.copy(TextureSource::WholeTexture, position)?;

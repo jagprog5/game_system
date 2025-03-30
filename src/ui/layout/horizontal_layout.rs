@@ -1,8 +1,8 @@
 use crate::ui::{
     util::length::{
-            clamp, MaxLen, MaxLenFailPolicy, MaxLenPolicy, MinLen, MinLenFailPolicy, MinLenPolicy,
-            PreferredPortion,
-        },
+        clamp, MaxLen, MaxLenFailPolicy, MaxLenPolicy, MinLen, MinLenFailPolicy, MinLenPolicy,
+        PreferredPortion,
+    },
     widget::{Widget, WidgetUpdateEvent},
 };
 
@@ -12,6 +12,9 @@ pub struct HorizontalLayout<'font_data, 'b, T: crate::core::System<'font_data> +
     pub elems: Vec<Box<dyn Widget<'font_data, T> + 'b>>,
     /// reverse the order IN TIME that elements are updated and drawn in. this
     /// does not affect the placement of elements in space
+    ///
+    /// this allows dependent widgets to be updated in the correct order within
+    /// the same frame
     pub reverse: bool,
     pub preferred_w: PreferredPortion,
     pub preferred_h: PreferredPortion,
@@ -143,7 +146,11 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for HorizontalLayout<'a, 
         self.max_h_fail_policy
     }
 
-    fn update(&mut self, mut event: WidgetUpdateEvent, sys_interface: &mut T) -> Result<bool, String> {
+    fn update(
+        &mut self,
+        mut event: WidgetUpdateEvent,
+        sys_interface: &mut T,
+    ) -> Result<bool, String> {
         if self.elems.is_empty() {
             return Ok(false);
         }
@@ -202,19 +209,6 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for HorizontalLayout<'a, 
             take_deficit(&mut info, deficit);
         }
 
-        if self.elems.len() == 1 {
-            let position = crate::ui::widget::place(
-                self.elems[0].as_mut(),
-                event.position,
-                crate::ui::util::length::AspectRatioPreferredDirection::HeightFromWidth,
-                sys_interface
-            )?;
-            let mut sub_event = event.sub_event(position);
-            sub_event.aspect_ratio_priority =
-                crate::ui::util::length::AspectRatioPreferredDirection::HeightFromWidth;
-            return self.elems[0].update(sub_event, sys_interface);
-        }
-
         let mut sum_display_width = 0f32;
         for info in info.iter() {
             sum_display_width += info.width;
@@ -222,12 +216,12 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for HorizontalLayout<'a, 
 
         let horizontal_space = if sum_display_width < event.position.w {
             let extra_space = event.position.w - sum_display_width;
-            debug_assert!(!self.elems.is_empty());
-            let num_spaces = self.elems.len() as u32 - 1;
-
-            debug_assert!(num_spaces != 0);
-            
-            extra_space / num_spaces as f32
+            if self.elems.len() <= 1 {
+                0.
+            } else {
+                let num_spaces = self.elems.len() as u32 - 1;
+                extra_space / num_spaces as f32
+            }
         } else {
             0.
         };
@@ -297,7 +291,7 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for HorizontalLayout<'a, 
             let mut height = clamp(pre_clamp_height, info.min_vertical, info.max_vertical);
             if let Some(new_h) = elem.preferred_height_from_width(info.width, sys_interface) {
                 let new_h = new_h?;
-                let new_h_max_clamp = if elem.preferred_link_allowed_exceed_portion() {
+                let new_h_max_clamp = if elem.preferred_ratio_exceed_parent() {
                     info.max_vertical
                 } else {
                     info.max_vertical.strictest(MaxLen(pre_clamp_height))
@@ -318,7 +312,7 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for HorizontalLayout<'a, 
                 w: info.width,
                 h: height,
             });
-            sub_event.aspect_ratio_priority =
+            sub_event.aspect_ratio_direction =
                 crate::ui::util::length::AspectRatioPreferredDirection::HeightFromWidth;
             let elem_request_another_frame = elem.update(sub_event, sys_interface)?;
             any_request_another_frame |= elem_request_another_frame;
@@ -330,10 +324,7 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for HorizontalLayout<'a, 
         Ok(any_request_another_frame)
     }
 
-    fn draw(
-        &self,
-        sys_interface: &mut T,
-    ) -> Result<(), String> {
+    fn draw(&self, sys_interface: &mut T) -> Result<(), String> {
         for e in self.elems.iter() {
             e.draw(sys_interface)?;
         }
@@ -341,8 +332,7 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for HorizontalLayout<'a, 
     }
 }
 
-#[derive(Clone, Copy)]
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 struct ChildInfo {
     preferred_horizontal: PreferredPortion,
     max_horizontal: f32,
@@ -355,7 +345,6 @@ struct ChildInfo {
     max_vertical: MaxLen,
     min_vertical: MinLen,
 }
-
 
 /// effects the behavior of sizing for vertical layout and horizontal layout.
 ///
