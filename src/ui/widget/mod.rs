@@ -13,7 +13,10 @@ pub mod checkbox;
 pub mod button;
 pub mod sizing;
 
-use std::{num::NonZeroU32, time::{Duration, Instant}};
+use std::{
+    num::NonZeroU32,
+    time::{Duration, Instant},
+};
 
 use crate::{
     core::{clipping_rect::ClippingRect, System},
@@ -288,7 +291,6 @@ pub fn place<'a, T: crate::core::System<'a>>(
         h,
     })
 }
-
 
 #[allow(dead_code)]
 pub enum HandlerReturnValue {

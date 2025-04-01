@@ -4,7 +4,7 @@ use game_system::{
     core::{color::Color, texture_area::TextureRect},
     ui::{
         layout::{
-            scroller::{ScrollAspectRatioDirectionPolicy, Scroller},
+            scroller::{DragState, ScrollAspectRatioDirectionPolicy, Scroller},
             vertical_layout::VerticalLayout,
         },
         util::length::{
@@ -12,12 +12,17 @@ use game_system::{
             PreferredPortion,
         },
         widget::{
-            background::Background, border::Border, button::{Button, ButtonInheritSizing}, gui_loop, multi_line_label::{MultiLineLabel, MultiLineMinHeightFailPolicy}, single_line_label::SingleLineLabel, sizing::{CustomSizing, NestedContentSizing}, update_gui, HandlerReturnValue, Widget
+            background::Background,
+            border::Border,
+            button::{Button, ButtonInheritSizing},
+            gui_loop,
+            multi_line_label::{MultiLineLabel, MultiLineMinHeightFailPolicy},
+            single_line_label::SingleLineLabel,
+            sizing::{CustomSizing, NestedContentSizing},
+            update_gui, HandlerReturnValue, Widget,
         },
     },
 };
-
-
 
 fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
     font_file_content: &'font_data [u8],
@@ -118,8 +123,19 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     text.min_h_policy =
         MultiLineMinHeightFailPolicy::None(MinLenFailPolicy::POSITIVE, MaxLenFailPolicy::NEGATIVE);
 
+    let drag_state = Cell::new(DragState::default());
+    let scroll_x = Cell::new(0i32);
+    let scroll_y = Cell::new(0i32);
+
     // put the text in a vertical scroller
-    let mut scroller = Scroller::new(false, true, Box::new(text));
+    let mut scroller = Scroller::new(
+        false,
+        true,
+        &drag_state,
+        &scroll_x,
+        &scroll_y,
+        Box::new(text),
+    );
     scroller.lock_small_content_y = Some(MaxLenFailPolicy::NEGATIVE);
     // see the doc for MultiLineLabel for why this is needed
     scroller.custom_sizing_info =

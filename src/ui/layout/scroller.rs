@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use crate::{
     core::{clipping_rect::ClippingRect, texture_area::TextureRect},
     ui::{
@@ -12,8 +14,9 @@ use crate::{
     },
 };
 
-#[derive(Debug)]
-enum DragState {
+#[derive(Debug, Default, Clone, Copy)]
+pub enum DragState {
+    #[default]
     None,
     /// waiting for mouse to move far enough before beginning dragging
     DragStart((i32, i32)),
@@ -39,16 +42,16 @@ pub enum ScrollAspectRatioDirectionPolicy {
 /// it is the responsibility of the contained widget to filter out mouse events
 /// which are not within the sdl clipping rectangle (which is set for both draw,
 /// as well as update, for convenience)
-pub struct Scroller<'font_data, 'b, T: crate::core::System<'font_data>> {
-    /// for drag scrolling
-    drag_state: DragState,
+pub struct Scroller<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>> {
     /// manhattan distance that the mouse must travel before it's considered a
     /// click and drag scroll
     pub drag_deadzone: u32,
     pub scroll_x_enabled: bool,
     pub scroll_y_enabled: bool,
-    pub scroll_x: i32,
-    pub scroll_y: i32,
+    /// for drag scrolling
+    pub drag_state: &'scroll_state Cell<DragState>,
+    pub scroll_x: &'scroll_state Cell<i32>,
+    pub scroll_y: &'scroll_state Cell<i32>,
     pub contained: Box<dyn Widget<'font_data, T> + 'b>,
 
     pub sizing: NestedContentSizing,
@@ -68,19 +71,26 @@ pub struct Scroller<'font_data, 'b, T: crate::core::System<'font_data>> {
     position_for_contained_from_update: FRect,
 }
 
-impl<'font_data, 'b, T: crate::core::System<'font_data>> Scroller<'font_data, 'b, T> {
+impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>>
+    Scroller<'font_data, 'b, 'scroll_state, T>
+{
+    /// scroll_x, scroll_y, and drag_state are states which should be retained
+    /// between frames
     pub fn new(
         scroll_x_enabled: bool,
         scroll_y_enabled: bool,
+        drag_state: &'scroll_state Cell<DragState>,
+        scroll_x: &'scroll_state Cell<i32>,
+        scroll_y: &'scroll_state Cell<i32>,
         contains: Box<dyn Widget<'font_data, T> + 'b>,
     ) -> Self {
         Self {
-            drag_state: DragState::None,
+            drag_state,
             drag_deadzone: 10,
             scroll_x_enabled,
             scroll_y_enabled,
-            scroll_x: 0,
-            scroll_y: 0,
+            scroll_x,
+            scroll_y,
             contained: contains,
             custom_sizing_info: Default::default(),
             restrict_scroll: true,
@@ -98,8 +108,8 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Scroller<'font_data, 'b
 fn apply_scroll_restrictions(
     mut position_for_contained: TextureRect,
     event_position: TextureRect,
-    scroll_y: &mut i32,
     scroll_x: &mut i32,
+    scroll_y: &mut i32,
     lock_small_content_y: Option<MaxLenFailPolicy>,
     lock_small_content_x: Option<MaxLenFailPolicy>,
 ) {
@@ -177,8 +187,8 @@ fn apply_scroll_restrictions(
     }
 }
 
-impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
-    for Scroller<'font_data, 'b, T>
+impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>> Widget<'font_data, T>
+    for Scroller<'font_data, 'b, 'scroll_state, T>
 {
     fn min(&self, sys_interface: &mut T) -> Result<(MinLen, MinLen), String> {
         self.sizing.min(self.contained.as_ref(), sys_interface)
@@ -271,27 +281,27 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                     if pos.contains_point((m.x, m.y))
                         && event.clipping_rect.contains_point((m.x, m.y))
                     {
-                        self.scroll_x -= m.wheel_dx * 7;
-                        self.scroll_y += m.wheel_dy * 7;
+                        self.scroll_x.set(self.scroll_x.get() - m.wheel_dx * 7);
+                        self.scroll_y.set(self.scroll_y.get() + m.wheel_dy * 7);
                     }
                 }
                 crate::core::event::Event::Mouse(m) => {
                     if !m.down {
-                        self.drag_state = DragState::None;
+                        self.drag_state.set(DragState::None);
                         continue;
                     }
 
-                    if let DragState::None = self.drag_state {
+                    if let DragState::None = self.drag_state.get() {
                         if m.changed
                             && pos.contains_point((m.x, m.y))
                             && event.clipping_rect.contains_point((m.x, m.y))
                         {
-                            self.drag_state = DragState::DragStart((m.x, m.y));
+                            self.drag_state.set(DragState::DragStart((m.x, m.y)));
                             // fall through
                         }
                     }
 
-                    if let DragState::DragStart((start_x, start_y)) = self.drag_state {
+                    if let DragState::DragStart((start_x, start_y)) = self.drag_state.get() {
                         let dragged_far_enough_x =
                             (start_x - m.x).unsigned_abs() > self.drag_deadzone;
                         let dragged_far_enough_y =
@@ -299,23 +309,25 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                         let trigger_x = dragged_far_enough_x && self.scroll_x_enabled;
                         let trigger_y = dragged_far_enough_y && self.scroll_y_enabled;
                         if trigger_x || trigger_y {
-                            self.drag_state =
-                                DragState::Dragging((m.x - self.scroll_x, m.y - self.scroll_y));
+                            self.drag_state.set(DragState::Dragging((
+                                m.x - self.scroll_x.get(),
+                                m.y - self.scroll_y.get(),
+                            )));
                             // intentional fallthrough
                         }
                     }
 
-                    if let DragState::Dragging((drag_x, drag_y)) = self.drag_state {
+                    if let DragState::Dragging((drag_x, drag_y)) = self.drag_state.get() {
                         if self.scroll_x_enabled {
-                            self.scroll_x = m.x - drag_x;
+                            self.scroll_x.set(m.x - drag_x);
                         }
                         if self.scroll_y_enabled {
-                            self.scroll_y = m.y - drag_y;
+                            self.scroll_y.set(m.y - drag_y);
                         }
                     }
 
                     // LAST: if currently dragging then consume all mouse events
-                    match self.drag_state {
+                    match self.drag_state.get() {
                         DragState::Dragging(_) | DragState::DragStart(_) => {
                             defer_consumed[index] = true;
                         }
@@ -347,20 +359,24 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
         };
 
         if self.restrict_scroll {
+            let mut scroll_x_arg = self.scroll_x.get();
+            let mut scroll_y_arg = self.scroll_y.get();
             apply_scroll_restrictions(
                 position_for_contained,
                 pos,
-                &mut self.scroll_y,
-                &mut self.scroll_x,
+                &mut scroll_x_arg,
+                &mut scroll_y_arg,
                 self.lock_small_content_y,
                 self.lock_small_content_x,
             );
+            self.scroll_x.set(scroll_x_arg);
+            self.scroll_y.set(scroll_y_arg);
         }
 
         self.clipping_rect_for_contained_from_update =
             event.clipping_rect.intersect_area(Some(pos));
-        self.position_for_contained_from_update.x += self.scroll_x as f32;
-        self.position_for_contained_from_update.y += self.scroll_y as f32;
+        self.position_for_contained_from_update.x += self.scroll_x.get() as f32;
+        self.position_for_contained_from_update.y += self.scroll_y.get() as f32;
 
         let mut event_for_contained = event.sub_event(self.position_for_contained_from_update);
         event_for_contained.clipping_rect = self.clipping_rect_for_contained_from_update;

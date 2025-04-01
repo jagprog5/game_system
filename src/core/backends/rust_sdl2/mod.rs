@@ -779,7 +779,8 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
 
                 // generate the debug texture
 
-                let mut surface = Surface::new(256, 256, sdl2::pixels::PixelFormatEnum::ARGB8888).unwrap();
+                let mut surface =
+                    Surface::new(256, 256, sdl2::pixels::PixelFormatEnum::ARGB8888).unwrap();
                 surface
                     .set_blend_mode(sdl2::render::BlendMode::None)
                     .unwrap();

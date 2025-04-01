@@ -5,12 +5,14 @@ use game_system::{
     ui::{
         util::length::PreferredPortion,
         widget::{
-            background::Background, checkbox::CheckBox, gui_loop, sizing::{CustomSizing, NestedContentSizing}, update_gui, HandlerReturnValue, Widget
+            background::Background,
+            checkbox::CheckBox,
+            gui_loop,
+            sizing::{CustomSizing, NestedContentSizing},
+            update_gui, HandlerReturnValue, Widget,
         },
     },
 };
-
-
 
 fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
     font_file_content: &'font_data [u8],

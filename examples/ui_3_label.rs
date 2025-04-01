@@ -9,12 +9,14 @@ use game_system::{
             rust::CellRefOrCell,
         },
         widget::{
-            gui_loop, multi_line_label::{MultiLineLabel, MultiLineMinHeightFailPolicy}, single_line_label::SingleLineLabel, texture::AspectRatioFailPolicy, update_gui, HandlerReturnValue, Widget
+            gui_loop,
+            multi_line_label::{MultiLineLabel, MultiLineMinHeightFailPolicy},
+            single_line_label::SingleLineLabel,
+            texture::AspectRatioFailPolicy,
+            update_gui, HandlerReturnValue, Widget,
         },
     },
 };
-
-
 
 fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
     font_file_content: &'font_data [u8],

@@ -5,12 +5,13 @@ use game_system::{
     ui::{
         util::length::{MaxLen, MaxLenPolicy, MinLen, MinLenPolicy, PreferredPortion},
         widget::{
-            border::Border, gui_loop, texture::{AspectRatioFailPolicy, Texture}, update_gui, HandlerReturnValue, Widget
+            border::Border,
+            gui_loop,
+            texture::{AspectRatioFailPolicy, Texture},
+            update_gui, HandlerReturnValue, Widget,
         },
     },
 };
-
-
 
 fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
     font_file_content: &'font_data [u8],

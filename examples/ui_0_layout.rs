@@ -12,8 +12,6 @@ use game_system::{
     },
 };
 
-
-
 fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
     font_file_content: &'font_data [u8],
 ) -> Result<(), String> {
@@ -39,7 +37,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         horizontal_0.sizing.min_w = 100f32.into();
         horizontal_0.sizing.max_h = (HEIGHT - 20.).into();
         horizontal_0.sizing.max_w = (WIDTH / 5.).into();
-    
+
         let mut horizontal_1 = Debug::default();
         horizontal_1.sizing.min_h = (HEIGHT - 20.).into();
         horizontal_1.sizing.min_w = 100f32.into();
@@ -47,7 +45,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         horizontal_1.sizing.max_w = (WIDTH / 4.).into();
         horizontal_1.sizing.max_h_fail_policy = MaxLenFailPolicy::POSITIVE;
         horizontal_1.sizing.min_h_fail_policy = MinLenFailPolicy::POSITIVE;
-    
+
         let mut horizontal_2 = Debug::default();
         horizontal_2.sizing.min_h = (HEIGHT - 20.).into();
         horizontal_2.sizing.min_w = 100f32.into();
@@ -55,24 +53,24 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         horizontal_2.sizing.max_w = (WIDTH / 3.).into();
         horizontal_2.sizing.max_h_fail_policy = MaxLenFailPolicy::NEGATIVE;
         horizontal_2.sizing.min_h_fail_policy = MinLenFailPolicy::NEGATIVE;
-    
+
         let horizontal_3 = Strut::shrinkable(20.0.into(), 0.0.into());
-    
+
         let mut v_elem_0 = Debug::default();
         v_elem_0.sizing.min_h = (HEIGHT / 4.).into();
         v_elem_0.sizing.max_h = (HEIGHT / 3.).into();
         v_elem_0.sizing.preferred_h = 0.5.into();
-    
+
         let mut v_elem_1 = Debug::default();
         v_elem_1.sizing.min_h = (HEIGHT / 4.).into();
         v_elem_1.sizing.max_h = (HEIGHT / 2.).into();
         v_elem_1.sizing.preferred_h = 0.5.into();
-    
+
         let mut v_elem_2 = Debug::default();
         v_elem_2.sizing.min_h = (HEIGHT / 4.).into();
         v_elem_2.sizing.max_h = (HEIGHT / 3.).into();
         v_elem_2.sizing.preferred_h = 0.5.into();
-    
+
         let mut horizontal_4 = VerticalLayout::<'font_data, '_, T> {
             max_h_policy: MajorAxisMaxLenPolicy::Spread,
             ..Default::default()
@@ -80,17 +78,17 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         horizontal_4.elems.push(Box::new(v_elem_0));
         horizontal_4.elems.push(Box::new(v_elem_1));
         horizontal_4.elems.push(Box::new(v_elem_2));
-    
+
         let mut v_elem_0 = Debug::default();
         v_elem_0.sizing.min_h = (HEIGHT / 4.).into();
         v_elem_0.sizing.max_h = (HEIGHT / 3.).into();
         v_elem_0.sizing.preferred_h = 0.5.into();
-    
+
         let mut v_elem_1 = Debug::default();
         v_elem_1.sizing.min_h = (HEIGHT / 4.).into();
         v_elem_1.sizing.max_h = (HEIGHT / 2.).into();
         v_elem_1.sizing.preferred_h = 0.5.into();
-    
+
         let mut v_elem_2 = Debug::default();
         v_elem_2.sizing.min_h = (HEIGHT / 4.).into();
         v_elem_2.sizing.max_h = (HEIGHT / 3.).into();
@@ -99,15 +97,15 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
             max_h_fail_policy: MaxLenFailPolicy::NEGATIVE,
             ..Default::default()
         };
-    
+
         horizontal_5.elems.push(Box::new(v_elem_0));
         horizontal_5.elems.push(Box::new(v_elem_1));
         horizontal_5.elems.push(Box::new(v_elem_2));
-    
+
         let mut horizontal_layout = HorizontalLayout::default();
         // allow to be smaller than children, to show min len fail policies
         horizontal_layout.min_h_policy = MinLenPolicy::Literal(MinLen::LAX);
-    
+
         horizontal_layout.elems.push(Box::new(horizontal_0));
         horizontal_layout.elems.push(Box::new(horizontal_1));
         horizontal_layout.elems.push(Box::new(horizontal_2));

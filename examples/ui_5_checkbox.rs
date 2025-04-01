@@ -3,14 +3,15 @@ use std::{cell::Cell, num::NonZeroU32, path::Path, time::Duration};
 use game_system::{
     core::{color::Color, texture_area::TextureRect},
     ui::{
-        layout::scroller::Scroller,
+        layout::scroller::{DragState, Scroller},
         widget::{
-            checkbox::CheckBox, gui_loop, sizing::{CustomSizing, NestedContentSizing}, update_gui, HandlerReturnValue, Widget
+            checkbox::CheckBox,
+            gui_loop,
+            sizing::{CustomSizing, NestedContentSizing},
+            update_gui, HandlerReturnValue, Widget,
         },
     },
 };
-
-
 
 fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
     font_file_content: &'font_data [u8],
@@ -75,7 +76,18 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     );
     checkbox.toggle_sound = Some(click_sound_path);
 
-    let mut scroller = Scroller::<'font_data, '_, T>::new(true, true, Box::new(checkbox));
+    let drag_state = Cell::new(DragState::default());
+    let scroll_x = Cell::new(0i32);
+    let scroll_y = Cell::new(0i32);
+
+    let mut scroller = Scroller::<'font_data, '_, '_, T>::new(
+        true,
+        true,
+        &drag_state,
+        &scroll_x,
+        &scroll_y,
+        Box::new(checkbox),
+    );
     scroller.sizing = NestedContentSizing::Custom(CustomSizing::default());
 
     gui_loop(DELAY, &mut system, |system, events, dt| {
