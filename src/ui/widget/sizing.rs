@@ -51,10 +51,10 @@ impl CustomSizing {
 
 #[derive(Default, Clone, Copy)]
 pub enum NestedContentSizing {
-    /// inherit sizing from the contained thing
+    /// the parent inherits the sizing info from the contained thing
     #[default]
     Inherit,
-    /// states literally, ignoring the contained thing
+    /// the parent's size is stated literally, ignoring the contained thing
     ///
     /// if a widget is contained, it may place the contained within the draw
     /// bounds of the parent widget
@@ -85,7 +85,7 @@ impl NestedContentSizing {
                 place(
                     contained,
                     event.position,
-                    event.aspect_ratio_direction,
+                    AspectRatioPreferredDirection::default(),
                     sys_interface,
                 )
             }

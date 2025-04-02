@@ -49,8 +49,9 @@ impl Default for MultiLineMinHeightFailPolicy {
 ///
 /// there's a few ways of fixing this:
 ///  - change the context. e.g. wrap the MultiLineLabel in a horizontal layout
-///    or use ScrollAspectRatioDirectionPolicy if in a scroller
-///  - change the other two conditions somehow
+///    or something which places it's contained widget (like a scroller with
+///    NestedContentSizing::custom)
+///  - change the other two conditions
 pub struct MultiLineLabel<'state> {
     pub text: CellRefOrCell<'state, String>,
     /// a single line label infers an appropriate point size from the available

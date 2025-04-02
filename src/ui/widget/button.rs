@@ -1,4 +1,4 @@
-use std::{cell::Cell, path::PathBuf};
+use std::cell::Cell;
 
 use crate::{
     core::texture_area::TextureRect,
@@ -29,8 +29,6 @@ pub struct Button<'font_data, 'b, 'state, T: crate::core::System<'font_data> + '
     pub hovered: Box<dyn Widget<'font_data, T> + 'b>,
     pub pressed: Box<dyn Widget<'font_data, T> + 'b>,
 
-    pub release_sound: Option<PathBuf>,
-
     pub sizing: NestedContentSizing,
     pub sizing_inherit_choice: ButtonInheritSizing,
 
@@ -58,7 +56,6 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b>
             state: ButtonState::Idle,
             sizing: Default::default(),
             sizing_inherit_choice: Default::default(),
-            release_sound: None,
         }
     }
 
@@ -164,9 +161,6 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> Widget<'fo
                                 // on falling edge
                                 e.set_consumed();
                                 self.released.set(true);
-                                if let Some(release_sound) = &self.release_sound {
-                                    sys_interface.sound(release_sound, 0., 0.)?;
-                                }
                             }
                             self.state = ButtonState::Hovered;
                         } else {

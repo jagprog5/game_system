@@ -117,8 +117,8 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for HorizontalLayout<'a, 
             }
         }
 
-        let mut height_so_far = MaxLen(0.);
-        let mut width_so_far = MaxLen::LAX;
+        let mut height_so_far = MaxLen::LAX;
+        let mut width_so_far = MaxLen(0.);
 
         for elem in self.elems.iter() {
             let (elem_max_w, elem_max_h) = elem.max(sys_interface)?;
@@ -189,13 +189,11 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for HorizontalLayout<'a, 
 
             if info.width < next_info_width {
                 // when clamped, it became larger
-                // it wants to be larger than it currently is
-                // take some len from the other components
+                // take that len from the other components
                 amount_taken += next_info_width - info.width;
             } else if info.width > next_info_width {
                 // when clamped, it became smaller
-                // it wants to be smaller than it currently is
-                // give some len to the other components
+                // give that len to the other components
                 amount_given += info.width - next_info_width;
             }
             info.width = next_info_width;
@@ -332,7 +330,7 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for HorizontalLayout<'a, 
     }
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 struct ChildInfo {
     preferred_horizontal: PreferredPortion,
     max_horizontal: f32,

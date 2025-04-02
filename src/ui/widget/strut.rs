@@ -25,12 +25,12 @@ impl Strut {
     }
 
     // prefers to be at its largest, but will shrink as needed
-    pub fn shrinkable(max_w: MaxLen, max_h: MaxLen) -> Self {
+    pub fn new(min: (MinLen, MinLen), max: (MaxLen, MaxLen)) -> Self {
         Strut {
-            min_w: MinLen::LAX,
-            min_h: MinLen::LAX,
-            max_w,
-            max_h,
+            min_w: min.0,
+            min_h: min.1,
+            max_w: max.0,
+            max_h: max.1,
             preferred_w: PreferredPortion::FULL,
             preferred_h: PreferredPortion::FULL,
         }

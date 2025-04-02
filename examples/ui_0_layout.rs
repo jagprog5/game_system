@@ -54,7 +54,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         horizontal_2.sizing.max_h_fail_policy = MaxLenFailPolicy::NEGATIVE;
         horizontal_2.sizing.min_h_fail_policy = MinLenFailPolicy::NEGATIVE;
 
-        let horizontal_3 = Strut::shrinkable(20.0.into(), 0.0.into());
+        let horizontal_3 = Strut::new((0.0.into(), 0.0.into()), (20.0.into(), 0.0.into()));
 
         let mut v_elem_0 = Debug::default();
         v_elem_0.sizing.min_h = (HEIGHT / 4.).into();

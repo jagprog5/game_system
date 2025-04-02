@@ -4,11 +4,11 @@ use game_system::{
     core::{color::Color, texture_area::TextureRect},
     ui::{
         layout::{
-            scroller::{DragState, ScrollAspectRatioDirectionPolicy, Scroller},
+            scroller::{DragState, Scroller},
             vertical_layout::VerticalLayout,
         },
         util::length::{
-            AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MinLenFailPolicy,
+            MaxLen, MaxLenFailPolicy, MinLenFailPolicy,
             PreferredPortion,
         },
         widget::{
@@ -137,9 +137,6 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         Box::new(text),
     );
     scroller.lock_small_content_y = Some(MaxLenFailPolicy::NEGATIVE);
-    // see the doc for MultiLineLabel for why this is needed
-    scroller.custom_sizing_info =
-        ScrollAspectRatioDirectionPolicy::Literal(AspectRatioPreferredDirection::HeightFromWidth);
     scroller.sizing = NestedContentSizing::Custom(Default::default());
 
     let mut layout = VerticalLayout::default();

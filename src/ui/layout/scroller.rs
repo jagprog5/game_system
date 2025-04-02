@@ -56,9 +56,6 @@ pub struct Scroller<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_
 
     pub sizing: NestedContentSizing,
 
-    // only if sizing is NestedContentSizing::Custom
-    pub custom_sizing_info: ScrollAspectRatioDirectionPolicy,
-
     /// true restricts the scrolling to keep the contained in frame
     pub restrict_scroll: bool,
 
@@ -92,7 +89,6 @@ impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>>
             scroll_x,
             scroll_y,
             contained: contains,
-            custom_sizing_info: Default::default(),
             restrict_scroll: true,
             lock_small_content_y: None,
             lock_small_content_x: None,
@@ -257,6 +253,7 @@ impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>> Widget<'
                 // widget anyway. what if it needs to react to a key press or
                 // something despite having no draw area?
 
+                self.clipping_rect_for_contained_from_update = ClippingRect::Zero;
                 return self.contained.update(event, sys_interface);
             }
         };
@@ -335,13 +332,6 @@ impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>> Widget<'
                     }
                 }
                 _ => {}
-            }
-        }
-
-        // change the ratio direction just before getting the position
-        if let NestedContentSizing::Custom(_) = self.sizing {
-            if let ScrollAspectRatioDirectionPolicy::Literal(dir) = self.custom_sizing_info {
-                event.aspect_ratio_direction = dir;
             }
         }
 

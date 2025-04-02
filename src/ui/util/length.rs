@@ -202,8 +202,10 @@ pub enum MaxLenPolicy {
 
 #[derive(Copy, Clone, Debug, Default)]
 pub enum AspectRatioPreferredDirection {
-    #[default]
     WidthFromHeight,
+    // height from width is intentionally the default because some widgets, like
+    // a multiline label, make sense in only that context
+    #[default]
     HeightFromWidth,
 }
 

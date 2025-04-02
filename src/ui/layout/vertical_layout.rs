@@ -210,13 +210,11 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for VerticalLayout<'a, 'b
 
             if info.height < next_info_height {
                 // when clamped, it became larger
-                // it wants to be larger than it currently is
-                // take some len from the other components
+                // take that len from the other components
                 amount_taken += next_info_height - info.height;
             } else if info.height > next_info_height {
                 // when clamped, it became smaller
-                // it wants to be smaller than it currently is
-                // give some len to the other components
+                // give that len to the other components
                 amount_given += info.height - next_info_height;
             }
             info.height = next_info_height;
@@ -355,7 +353,7 @@ impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for VerticalLayout<'a, 'b
     }
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 struct ChildInfo {
     preferred_vertical: PreferredPortion,
     max_vertical: f32,
