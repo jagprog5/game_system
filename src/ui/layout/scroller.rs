@@ -1,7 +1,7 @@
 use std::cell::Cell;
 
 use crate::{
-    core::{clipping_rect::ClippingRect, texture_area::TextureRect},
+    core::{clipping_rect::ClippingRect, texture_rect::TextureRect},
     ui::{
         util::{
             length::{

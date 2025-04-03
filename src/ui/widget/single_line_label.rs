@@ -1,7 +1,7 @@
 use std::num::NonZeroU16;
 
 use crate::core::color::Color;
-use crate::core::texture_area::{TextureRect, TextureSource};
+use crate::core::texture_rect::{TextureRect, TextureSource};
 use crate::core::NonEmptyStr;
 use crate::ui::util::length::{
     AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MaxLenPolicy, MinLen,

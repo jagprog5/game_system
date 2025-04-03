@@ -5,7 +5,7 @@ use std::{num::NonZero, path::Path, time::Duration};
 
 use game_system::core::color::Color;
 use game_system::core::event::Event;
-use game_system::core::texture_area::{TextureDestination, TextureRect};
+use game_system::core::texture_rect::{TextureDestination, TextureRect};
 use game_system::core::{LoopingSoundHandle, TextureHandle};
 
 fn do_test<'a, T: game_system::core::System<'a>>(

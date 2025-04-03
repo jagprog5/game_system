@@ -1,7 +1,7 @@
 use std::cell::Cell;
 
 use crate::{
-    core::texture_area::TextureRect,
+    core::texture_rect::TextureRect,
     ui::util::length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
 };
 

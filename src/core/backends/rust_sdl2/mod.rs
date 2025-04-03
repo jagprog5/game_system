@@ -36,7 +36,7 @@ use texture_wrapper::TextureWrapper;
 use crate::core::{
     color::Color,
     event::MouseWheelEvent,
-    texture_area::{TextureDestinationF, TextureSource, TextureSourceF},
+    texture_rect::{TextureDestinationF, TextureSource, TextureSourceF},
     Event, NonEmptyStr, System, TextureDestination,
 };
 
@@ -206,7 +206,7 @@ impl<'sys> crate::core::TextureHandle<'sys> for Texture<'sys> {
     fn copy_f<Src, Dst>(&mut self, src: Src, dst: Dst) -> Result<(), String>
     where
         Src: Into<TextureSourceF>,
-        Dst: Into<crate::core::texture_area::TextureDestinationF>,
+        Dst: Into<crate::core::texture_rect::TextureDestinationF>,
     {
         let dst = dst.into();
         let src: TextureSourceF = src.into();

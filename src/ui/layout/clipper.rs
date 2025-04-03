@@ -19,7 +19,9 @@ impl<'b, 'font_data, T: crate::core::System<'font_data>> Clipper<'b, 'font_data,
     }
 }
 
-impl<'b, 'font_data, T: crate::core::System<'font_data>> Widget<'font_data, T> for Clipper<'b, 'font_data, T> {
+impl<'b, 'font_data, T: crate::core::System<'font_data>> Widget<'font_data, T>
+    for Clipper<'b, 'font_data, T>
+{
     fn update(
         &mut self,
         mut event: crate::ui::widget::WidgetUpdateEvent,

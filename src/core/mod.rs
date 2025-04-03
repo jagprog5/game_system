@@ -2,7 +2,7 @@ pub mod backends;
 pub mod clipping_rect;
 pub mod color;
 pub mod event;
-pub mod texture_area;
+pub mod texture_rect;
 
 use std::num::NonZeroU16;
 use std::num::NonZeroU32;
@@ -12,11 +12,11 @@ use std::time::Duration;
 use clipping_rect::ClippingRect;
 use color::Color;
 use event::Event;
-use texture_area::TextureDestination;
-use texture_area::TextureDestinationF;
-use texture_area::TextureRect;
-use texture_area::TextureSource;
-use texture_area::TextureSourceF;
+use texture_rect::TextureDestination;
+use texture_rect::TextureDestinationF;
+use texture_rect::TextureRect;
+use texture_rect::TextureSource;
+use texture_rect::TextureSourceF;
 
 pub trait LoopingSoundHandle<'a>: Sized {
     fn new(path: &'a Path) -> Self;

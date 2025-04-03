@@ -1,7 +1,7 @@
 use std::{path::Path, time::Duration};
 
 use game_system::{
-    core::{color::Color, texture_area::TextureRect},
+    core::{color::Color, texture_rect::TextureRect},
     ui::{
         util::length::{MaxLen, MaxLenPolicy, MinLen, MinLenPolicy, PreferredPortion},
         widget::{

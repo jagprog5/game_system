@@ -1,16 +1,13 @@
 use std::{cell::Cell, num::NonZeroU32, path::Path, time::Duration};
 
 use game_system::{
-    core::{color::Color, texture_area::TextureRect},
+    core::{color::Color, texture_rect::TextureRect},
     ui::{
         layout::{
             scroller::{DragState, Scroller},
             vertical_layout::VerticalLayout,
         },
-        util::length::{
-            MaxLen, MaxLenFailPolicy, MinLenFailPolicy,
-            PreferredPortion,
-        },
+        util::length::{MaxLen, MaxLenFailPolicy, MinLenFailPolicy, PreferredPortion},
         widget::{
             background::Background,
             border::Border,

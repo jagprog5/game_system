@@ -3,7 +3,7 @@ use std::{num::NonZeroU32, path::PathBuf};
 use crate::{
     core::{
         color::Color,
-        texture_area::{TextureDestination, TextureRect, TextureRotation},
+        texture_rect::{TextureDestination, TextureRect, TextureRotation},
         TextureHandle,
     },
     ui::util::{

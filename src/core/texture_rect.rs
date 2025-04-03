@@ -54,17 +54,17 @@ impl TextureRect {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct TextureAreaF {
+pub struct TextureRectF {
     pub x: NonNaNFinite<f32>,
     pub y: NonNaNFinite<f32>,
     pub w: StrictlyPositiveFinite<f32>,
     pub h: StrictlyPositiveFinite<f32>,
 }
 
-impl From<TextureRect> for TextureAreaF {
+impl From<TextureRect> for TextureRectF {
     fn from(value: TextureRect) -> Self {
         unsafe {
-            TextureAreaF {
+            TextureRectF {
                 x: NonNaNFinite::<f32>::new_unchecked(value.x as f32),
                 y: NonNaNFinite::<f32>::new_unchecked(value.y as f32),
                 w: StrictlyPositiveFinite::<f32>::new_unchecked(value.w.get() as f32),
@@ -115,18 +115,18 @@ impl From<TextureRect> for TextureSource {
 pub enum TextureSourceF {
     #[default]
     WholeTexture,
-    Area(TextureAreaF),
+    Area(TextureRectF),
 }
 
-impl From<TextureAreaF> for TextureSourceF {
-    fn from(value: TextureAreaF) -> Self {
+impl From<TextureRectF> for TextureSourceF {
+    fn from(value: TextureRectF) -> Self {
         Self::Area(value)
     }
 }
 
 pub struct TextureDestination(pub TextureRect, pub Option<TextureRotation>, pub Color);
 
-pub struct TextureDestinationF(pub TextureAreaF, pub Option<TextureRotationF>, pub Color);
+pub struct TextureDestinationF(pub TextureRectF, pub Option<TextureRotationF>, pub Color);
 
 impl From<TextureRect> for TextureDestination {
     fn from(area: TextureRect) -> Self {
@@ -143,8 +143,8 @@ impl From<TextureRect> for TextureDestination {
     }
 }
 
-impl From<TextureAreaF> for TextureDestinationF {
-    fn from(area: TextureAreaF) -> Self {
+impl From<TextureRectF> for TextureDestinationF {
+    fn from(area: TextureRectF) -> Self {
         TextureDestinationF(
             area,
             None,

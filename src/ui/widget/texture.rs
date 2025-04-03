@@ -5,8 +5,8 @@ use typed_floats::{NonNaNFinite, StrictlyPositiveFinite};
 use crate::{
     core::{
         color::Color,
-        texture_area::{
-            TextureAreaF, TextureDestination, TextureDestinationF, TextureRect, TextureSource,
+        texture_rect::{
+            TextureDestination, TextureDestinationF, TextureRect, TextureRectF, TextureSource,
         },
     },
     ui::util::{
@@ -350,7 +350,7 @@ pub(crate) fn texture_draw<'a>(
         AspectRatioFailPolicy::ZoomIn((zoom_x, zoom_y)) => {
             // ensure that destination is ok in terms of INF, NAN, etc. this
             // instance is used for division below because there's no div by 0
-            let dst_safe: TextureAreaF = match dst.into() {
+            let dst_safe: TextureRectF = match dst.into() {
                 None => return Ok(()), // can't draw zero size
                 Some(v) => v,
             };
@@ -362,7 +362,7 @@ pub(crate) fn texture_draw<'a>(
             };
             // the src is using floating point prevision, but the destination
             // still snaps to grid
-            let dst_actual: TextureAreaF = dst_actual.into();
+            let dst_actual: TextureRectF = dst_actual.into();
             let dst = ();
             let _dst = dst; // don't use this one any more
 
@@ -400,7 +400,7 @@ pub(crate) fn texture_draw<'a>(
 
                 crate::core::TextureHandle::copy_f(
                     texture,
-                    TextureAreaF {
+                    TextureRectF {
                         x: x_arg,
                         y: y_arg,
                         w: width_arg,
@@ -433,7 +433,7 @@ pub(crate) fn texture_draw<'a>(
 
                 crate::core::TextureHandle::copy_f(
                     texture,
-                    TextureAreaF {
+                    TextureRectF {
                         x: x_arg,
                         y: y_arg,
                         w: width_arg,

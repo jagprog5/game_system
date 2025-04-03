@@ -1,7 +1,7 @@
 use std::{cell::Cell, path::PathBuf};
 
 use crate::{
-    core::{texture_area::TextureRect, TextureHandle},
+    core::{texture_rect::TextureRect, TextureHandle},
     ui::util::{
         length::{MaxLen, MinLen},
         rect::FRect,
@@ -121,7 +121,7 @@ impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for CheckBox<'state> 
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {
-        let pos: Option<crate::core::texture_area::TextureRect> = self.draw_pos.into();
+        let pos: Option<crate::core::texture_rect::TextureRect> = self.draw_pos.into();
         let pos = match pos {
             Some(v) => v,
             None => return Ok(()),

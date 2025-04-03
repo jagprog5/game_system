@@ -3,7 +3,7 @@ use std::num::NonZeroU16;
 use crate::{
     core::{
         color::Color,
-        texture_area::{TextureRect, TextureSource},
+        texture_rect::{TextureRect, TextureSource},
         NonEmptyStr, TextureHandle,
     },
     ui::util::{

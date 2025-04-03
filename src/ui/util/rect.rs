@@ -100,7 +100,7 @@ pub fn rect_len_round(i: f32) -> Option<std::num::NonZeroU32> {
 
 /// convert to texture area for use by system in drawing a pixel at integer
 /// coordinates
-impl From<FRect> for Option<crate::core::texture_area::TextureRect> {
+impl From<FRect> for Option<crate::core::texture_rect::TextureRect> {
     fn from(val: FRect) -> Self {
         let w = match rect_len_round(val.w) {
             Some(v) => v,
@@ -112,12 +112,12 @@ impl From<FRect> for Option<crate::core::texture_area::TextureRect> {
         };
         let x = rect_position_round(val.x);
         let y = rect_position_round(val.y);
-        Some(crate::core::texture_area::TextureRect { x, y, w, h })
+        Some(crate::core::texture_rect::TextureRect { x, y, w, h })
     }
 }
 
 /// convert to floating pt texture area for use by system
-impl From<FRect> for Option<crate::core::texture_area::TextureAreaF> {
+impl From<FRect> for Option<crate::core::texture_rect::TextureRectF> {
     fn from(val: FRect) -> Self {
         let x: NonNaNFinite<f32> = match val.x.try_into() {
             Ok(v) => v,
@@ -138,6 +138,6 @@ impl From<FRect> for Option<crate::core::texture_area::TextureAreaF> {
             Ok(v) => v,
             Err(_) => return None,
         };
-        Some(crate::core::texture_area::TextureAreaF { x, y, w, h })
+        Some(crate::core::texture_rect::TextureRectF { x, y, w, h })
     }
 }

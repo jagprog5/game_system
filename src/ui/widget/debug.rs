@@ -1,7 +1,7 @@
 use crate::{
     core::{
         event::Event,
-        texture_area::{TextureRect, TextureSource},
+        texture_rect::{TextureRect, TextureSource},
         TextureHandle,
     },
     ui::util::{
@@ -114,7 +114,7 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Debug {
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {
         // as always, snap to integer grid before rendering / using,
         // plus checks that draw area is non-zero
-        let pos: Option<crate::core::texture_area::TextureRect> = self.draw_pos.into();
+        let pos: Option<crate::core::texture_rect::TextureRect> = self.draw_pos.into();
         let pos = match pos {
             Some(v) => v,
             None => return Ok(()),

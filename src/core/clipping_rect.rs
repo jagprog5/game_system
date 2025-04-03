@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
 
-use super::texture_area::TextureRect;
+use super::texture_rect::TextureRect;
 
 /// I added this in rust-sdl2. it's redefined here to be agnostic to a specific
 /// backend

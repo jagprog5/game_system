@@ -2,7 +2,7 @@ use std::{num::NonZeroU32, path::PathBuf};
 
 use crate::{
     core::{
-        texture_area::{TextureRect, TextureSource},
+        texture_rect::{TextureRect, TextureSource},
         TextureHandle,
     },
     ui::util::{
