@@ -1,7 +1,7 @@
 use std::{cell::Cell, time::Duration};
 
 use game_system::{
-    core::color::Color,
+    core::{color::Color, texture_rect::AspectRatioFailPolicy},
     ui::{
         layout::{horizontal_layout::HorizontalLayout, vertical_layout::VerticalLayout},
         util::{
@@ -12,7 +12,6 @@ use game_system::{
             gui_loop,
             multi_line_label::{MultiLineLabel, MultiLineMinHeightFailPolicy},
             single_line_label::SingleLineLabel,
-            texture::AspectRatioFailPolicy,
             update_gui, HandlerReturnValue, Widget,
         },
     },

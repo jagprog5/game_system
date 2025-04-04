@@ -278,8 +278,8 @@ impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>> Widget<'
                     if pos.contains_point((m.x, m.y))
                         && event.clipping_rect.contains_point((m.x, m.y))
                     {
-                        self.scroll_x.set(self.scroll_x.get() - m.wheel_dx * 7);
-                        self.scroll_y.set(self.scroll_y.get() + m.wheel_dy * 7);
+                        self.scroll_x.set(self.scroll_x.get() - m.wheel_dx * 10);
+                        self.scroll_y.set(self.scroll_y.get() + m.wheel_dy * 10);
                     }
                 }
                 crate::core::event::Event::Mouse(m) => {

@@ -57,7 +57,6 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         &button_release,
     );
     button.sizing_inherit_choice = ButtonInheritSizing::Hovered;
-    button.release_sound = Some(button_sound_path);
 
     let background_path = Path::new(".")
         .join("examples")
@@ -162,6 +161,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         let r = update_gui(&mut background, events, system, dt)?;
 
         if button_release.get() {
+            system.sound(&button_sound_path, 0., 0.)?;
             println!("button was pressed");
         }
 

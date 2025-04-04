@@ -121,12 +121,12 @@ impl<'font_data> Drop for RustSDL2System<'font_data> {
     }
 }
 
-pub struct Texture<'sys> {
+pub struct TextureHandle<'sys> {
     txt: &'sys mut sdl2::render::Texture,
     canvas: &'sys mut Canvas<Window>,
 }
 
-impl<'sys> crate::core::TextureHandle<'sys> for Texture<'sys> {
+impl<'sys> crate::core::TextureHandle<'sys> for TextureHandle<'sys> {
     fn copy<Src, Dst>(&mut self, src: Src, dst: Dst) -> Result<(), String>
     where
         Src: Into<TextureSource>,
@@ -274,7 +274,7 @@ impl<'sys> crate::core::TextureHandle<'sys> for Texture<'sys> {
 impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
     type LoopingSoundHandle<'a> = LoopingSoundHandle<'a>;
     type ImageTextureHandle<'system>
-        = Texture<'system>
+        = TextureHandle<'system>
     where
         Self: 'system;
     // ImageTextureHandle = TextTextureHandle here, but maybe not for other
@@ -399,7 +399,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         Ok((width, height))
     }
 
-    fn texture(&mut self, image_path: &Path) -> Result<Texture, String> {
+    fn texture(&mut self, image_path: &Path) -> Result<TextureHandle, String> {
         let texture_key = TextureKey::from_path(image_path);
 
         let txt = self.texture_cache.try_get_or_insert_mut_ref(
@@ -414,7 +414,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
             },
         )?;
 
-        Ok(Texture {
+        Ok(TextureHandle {
             txt: &mut txt.0,
             canvas: &mut self.canvas,
         })
@@ -452,7 +452,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         text: NonEmptyStr,
         point_size: NonZeroU16,
         wrap_width: Option<NonZeroU32>,
-    ) -> Result<Texture<'_>, String> {
+    ) -> Result<TextureHandle<'_>, String> {
         // the point size is discretized in some way. that's because there is
         // some overhead associated with actually loading the font file data
         // into the font object (a font object is used per point size) - would
@@ -518,7 +518,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
             },
         )?;
 
-        Ok(Texture {
+        Ok(TextureHandle {
             txt: &mut txt.0,
             canvas: &mut self.canvas,
         })
@@ -815,7 +815,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
             },
         )?;
 
-        Ok(Texture {
+        Ok(TextureHandle {
             txt: &mut txt.0,
             canvas: &mut self.canvas,
         })

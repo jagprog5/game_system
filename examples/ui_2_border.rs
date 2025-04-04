@@ -1,14 +1,14 @@
 use std::{path::Path, time::Duration};
 
 use game_system::{
-    core::{color::Color, texture_rect::TextureRect},
+    core::{
+        color::Color,
+        texture_rect::{AspectRatioFailPolicy, TextureRect},
+    },
     ui::{
         util::length::{MaxLen, MaxLenPolicy, MinLen, MinLenPolicy, PreferredPortion},
         widget::{
-            border::Border,
-            gui_loop,
-            texture::{AspectRatioFailPolicy, Texture},
-            update_gui, HandlerReturnValue, Widget,
+            border::Border, gui_loop, texture::Texture, update_gui, HandlerReturnValue, Widget,
         },
     },
 };

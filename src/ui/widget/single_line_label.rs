@@ -1,8 +1,8 @@
 use std::num::NonZeroU16;
 
 use crate::core::color::Color;
-use crate::core::texture_rect::{TextureRect, TextureSource};
-use crate::core::NonEmptyStr;
+use crate::core::texture_rect::{AspectRatioFailPolicy, TextureRect};
+use crate::core::{NonEmptyStr, TextureHandle};
 use crate::ui::util::length::{
     AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MaxLenPolicy, MinLen,
     MinLenFailPolicy, MinLenPolicy, PreferredPortion,
@@ -11,7 +11,6 @@ use crate::ui::util::rect::FRect;
 
 use crate::ui::util::rust::CellRefOrCell;
 
-use super::texture::{texture_draw, AspectRatioFailPolicy};
 use super::{Widget, WidgetUpdateEvent};
 
 pub(crate) const RATIO_POINT_SIZE: NonZeroU16 = unsafe { NonZeroU16::new_unchecked(16) };
@@ -176,16 +175,24 @@ impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for SingleLineLabel<'
         let point_size_to_use =
             unsafe { NonZeroU16::new_unchecked(position.h.get().min(u16::MAX.into()) as u16) };
         let mut texture = match text {
-            Err(()) => return Ok(()),
+            Err(()) => return Ok(()), // skip empty txt
             Ok(v) => sys_interface.text(v, point_size_to_use, None)?,
         };
 
-        texture_draw(
-            &mut texture,
-            self.color,
-            &self.aspect_ratio_fail_policy,
-            TextureSource::WholeTexture,
-            self.draw_pos,
-        )
+        let texture_size = texture.size()?;
+
+        let src = TextureRect {
+            x: 0,
+            y: 0,
+            w: texture_size.0,
+            h: texture_size.1,
+        };
+
+        let maybe_src_dst = self.aspect_ratio_fail_policy.get(src.into(), self.draw_pos);
+        if let Some((src, dst)) = maybe_src_dst {
+            texture.copy_f(src, dst)?;
+        }
+
+        Ok(())
     }
 }
