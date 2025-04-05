@@ -35,6 +35,9 @@ pub struct Button<'font_data, 'b, 'state, T: crate::core::System<'font_data> + '
     /// use this to implement functionality
     pub released: &'state Cell<bool>,
 
+    /// a button which can be used to press the button
+    pub hotkey: Option<u8>,
+
     /// state stored for draw from update
     state: ButtonState,
 }
@@ -53,6 +56,7 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b>
             hovered,
             pressed,
             released,
+            hotkey: None,
             state: ButtonState::Idle,
             sizing: Default::default(),
             sizing_inherit_choice: Default::default(),
@@ -152,19 +156,34 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> Widget<'fo
         };
         for e in event.events.iter_mut().filter(|e| e.available()) {
             match e.e {
+                crate::core::event::Event::Key(key_event) => {
+                    if let Some(hotkey) = self.hotkey {
+                        if key_event.key == hotkey {
+                            e.set_consumed();
+                            if key_event.down {
+                                self.state = ButtonState::Pressed;
+                            } else {
+                                // rising edge
+                                self.released.set(true);
+                                self.state = ButtonState::Idle;
+                            }
+                        }
+                    }
+                }
                 crate::core::event::Event::Mouse(mouse) => {
                     if non_zero_area.contains_point((mouse.x, mouse.y))
                         && event.clipping_rect.contains_point((mouse.x, mouse.y))
                     {
+                        if mouse.changed {
+                            e.set_consumed();
+                        }
                         if !mouse.down {
                             if mouse.changed {
-                                // on falling edge
-                                e.set_consumed();
+                                // rising edge
                                 self.released.set(true);
                             }
                             self.state = ButtonState::Hovered;
                         } else {
-                            e.set_consumed();
                             self.state = ButtonState::Pressed;
                         }
                     } else {

@@ -8,7 +8,7 @@ use sdl2::{rwops::RWops, surface::Surface, sys::SDL_Color, ttf::Sdl2TtfContext};
 
 /// my own font minimal font wrapper, largely copied from rust-sdl2. was having
 /// difficulty with lifetimes, in particular I wanted System to be a self
-/// contained (referential struct
+/// contained (referential) struct
 ///
 /// this is roughly equivalent to the "unsafe_textures" features of rust-sdl2
 pub(crate) struct Font<'rwops> {
@@ -71,7 +71,7 @@ impl<'rwops> Font<'rwops> {
 impl<'r> Drop for Font<'r> {
     fn drop(&mut self) {
         unsafe {
-            // all fonts are dropped before the ttf context closes
+            // safety: all fonts are dropped before the ttf context closes
             debug_assert!(sdl2::sys::ttf::TTF_WasInit() != 0);
             sdl2::sys::ttf::TTF_CloseFont(self.raw);
         }

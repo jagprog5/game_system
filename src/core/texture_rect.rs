@@ -25,6 +25,28 @@ pub struct TextureRect {
 }
 
 impl TextureRect {
+    /// checked ctor - w and h non zero
+    pub fn new(x: i32, y: i32, w: u32, h: u32) -> Option<Self> {
+        let w = match NonZeroU32::new(w) {
+            Some(v) => v,
+            None => return None,
+        };
+        let h = match NonZeroU32::new(h) {
+            Some(v) => v,
+            None => return None,
+        };
+        Some(Self { x, y, w, h })
+    }
+
+    pub unsafe fn new_unchecked(x: i32, y: i32, w: u32, h: u32) -> Self {
+        Self {
+            x,
+            y,
+            w: NonZeroU32::new_unchecked(w),
+            h: NonZeroU32::new_unchecked(h),
+        }
+    }
+
     pub fn contains_point<P>(&self, point: P) -> bool
     where
         P: Into<(i32, i32)>,
@@ -64,15 +86,48 @@ pub struct TextureRectF {
     pub h: StrictlyPositiveFinite<f32>,
 }
 
+impl TextureRectF {
+    /// checked ctor
+    pub fn new(x: f32, y: f32, w: f32, h: f32) -> Option<Self> {
+        let x = match NonNaNFinite::<f32>::new(x) {
+            Ok(v) => v,
+            Err(_) => return None,
+        };
+
+        let y = match NonNaNFinite::<f32>::new(y) {
+            Ok(v) => v,
+            Err(_) => return None,
+        };
+
+        let w = match StrictlyPositiveFinite::<f32>::new(w) {
+            Ok(v) => v,
+            Err(_) => return None,
+        };
+
+        let h = match StrictlyPositiveFinite::<f32>::new(h) {
+            Ok(v) => v,
+            Err(_) => return None,
+        };
+        Some(Self { x, y, w, h })
+    }
+
+    pub unsafe fn new_unchecked(x: f32, y: f32, w: f32, h: f32) -> Self {
+        Self {
+            x: NonNaNFinite::<f32>::new_unchecked(x),
+            y: NonNaNFinite::<f32>::new_unchecked(y),
+            w: StrictlyPositiveFinite::<f32>::new_unchecked(w),
+            h: StrictlyPositiveFinite::<f32>::new_unchecked(h),
+        }
+    }
+}
+
 impl From<TextureRect> for TextureRectF {
     fn from(value: TextureRect) -> Self {
-        unsafe {
-            TextureRectF {
-                x: NonNaNFinite::<f32>::new_unchecked(value.x as f32),
-                y: NonNaNFinite::<f32>::new_unchecked(value.y as f32),
-                w: StrictlyPositiveFinite::<f32>::new_unchecked(value.w.get() as f32),
-                h: StrictlyPositiveFinite::<f32>::new_unchecked(value.h.get() as f32),
-            }
+        TextureRectF {
+            x: value.x.into(),
+            y: value.y.into(),
+            w: value.w.into(),
+            h: value.h.into(),
         }
     }
 }

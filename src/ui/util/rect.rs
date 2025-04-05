@@ -98,6 +98,17 @@ pub fn rect_len_round(i: f32) -> Option<std::num::NonZeroU32> {
     }
 }
 
+impl From<crate::core::texture_rect::TextureRectF> for FRect {
+    fn from(value: crate::core::texture_rect::TextureRectF) -> Self {
+        Self {
+            x: value.x.into(),
+            y: value.y.into(),
+            w: value.w.into(),
+            h: value.h.into(),
+        }
+    }
+}
+
 /// convert to texture area for use by system in drawing a pixel at integer
 /// coordinates
 impl From<FRect> for Option<crate::core::texture_rect::TextureRect> {
