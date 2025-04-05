@@ -55,7 +55,7 @@ impl<'rwops> Font<'rwops> {
                     foreground,
                     wrap_width.get(),
                 ),
-                None => sdl2::sys::ttf::TTF_RenderUTF8_Blended(self.raw, cstr.as_ptr(), foreground),
+                None => sdl2::sys::ttf::TTF_RenderUTF8_Shaded(self.raw, cstr.as_ptr(), foreground, SDL_Color { r: 0, g: 0, b: 0, a: 0 }),
             };
 
             if out.is_null() {
