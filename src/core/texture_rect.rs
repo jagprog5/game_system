@@ -2,8 +2,6 @@ use std::num::NonZeroU32;
 
 pub use typed_floats::{NonNaNFinite, StrictlyPositiveFinite};
 
-use crate::ui::util::rect::FRect;
-
 use super::color::Color;
 
 /// has a positive area
@@ -25,6 +23,28 @@ pub struct TextureRect {
 }
 
 impl TextureRect {
+    /// checked ctor - w and h non zero
+    pub fn new(x: i32, y: i32, w: u32, h: u32) -> Option<Self> {
+        let w = match NonZeroU32::new(w) {
+            Some(v) => v,
+            None => return None,
+        };
+        let h = match NonZeroU32::new(h) {
+            Some(v) => v,
+            None => return None,
+        };
+        Some(Self { x, y, w, h })
+    }
+
+    pub unsafe fn new_unchecked(x: i32, y: i32, w: u32, h: u32) -> Self {
+        Self {
+            x,
+            y,
+            w: NonZeroU32::new_unchecked(w),
+            h: NonZeroU32::new_unchecked(h),
+        }
+    }
+
     pub fn contains_point<P>(&self, point: P) -> bool
     where
         P: Into<(i32, i32)>,
@@ -64,15 +84,48 @@ pub struct TextureRectF {
     pub h: StrictlyPositiveFinite<f32>,
 }
 
+impl TextureRectF {
+    /// checked ctor
+    pub fn new(x: f32, y: f32, w: f32, h: f32) -> Option<Self> {
+        let x = match NonNaNFinite::<f32>::new(x) {
+            Ok(v) => v,
+            Err(_) => return None,
+        };
+
+        let y = match NonNaNFinite::<f32>::new(y) {
+            Ok(v) => v,
+            Err(_) => return None,
+        };
+
+        let w = match StrictlyPositiveFinite::<f32>::new(w) {
+            Ok(v) => v,
+            Err(_) => return None,
+        };
+
+        let h = match StrictlyPositiveFinite::<f32>::new(h) {
+            Ok(v) => v,
+            Err(_) => return None,
+        };
+        Some(Self { x, y, w, h })
+    }
+
+    pub unsafe fn new_unchecked(x: f32, y: f32, w: f32, h: f32) -> Self {
+        Self {
+            x: NonNaNFinite::<f32>::new_unchecked(x),
+            y: NonNaNFinite::<f32>::new_unchecked(y),
+            w: StrictlyPositiveFinite::<f32>::new_unchecked(w),
+            h: StrictlyPositiveFinite::<f32>::new_unchecked(h),
+        }
+    }
+}
+
 impl From<TextureRect> for TextureRectF {
     fn from(value: TextureRect) -> Self {
-        unsafe {
-            TextureRectF {
-                x: NonNaNFinite::<f32>::new_unchecked(value.x as f32),
-                y: NonNaNFinite::<f32>::new_unchecked(value.y as f32),
-                w: StrictlyPositiveFinite::<f32>::new_unchecked(value.w.get() as f32),
-                h: StrictlyPositiveFinite::<f32>::new_unchecked(value.h.get() as f32),
-            }
+        TextureRectF {
+            x: value.x.into(),
+            y: value.y.into(),
+            w: value.w.into(),
+            h: value.h.into(),
         }
     }
 }
@@ -162,140 +215,5 @@ impl From<TextureRectF> for TextureDestinationF {
                 a: 0xFF,
             },
         )
-    }
-}
-
-// =============================================================================
-
-/// how should an image's aspect ratio be treated if the available space does
-/// not have the same ratio
-pub enum AspectRatioFailPolicy {
-    /// simply stretch the image to fit the available space, ignoring the aspect
-    /// ratio
-    Stretch,
-
-    /// zoom out, adding blank space.
-    ///
-    /// contains two floats from 0-1 (inclusive), where 0 aligns the image in
-    /// the negative direction (x, y respectively), and 1 aligns the image in
-    /// the positive direction.
-    ///
-    /// a sane default is (0.5, 0.5)
-    ZoomOut((f32, f32)),
-
-    /// zoom in, cutting off excess length
-    ///
-    /// contains two floats from 0-1 (inclusive) where 0 aligns the image in the
-    /// negative direction (x, y respectively), and 1 aligns the image in the
-    /// positive direction.
-    ///
-    /// a sane default is (0.5, 0.5)
-    ZoomIn((f32, f32)),
-}
-
-impl Default for AspectRatioFailPolicy {
-    fn default() -> Self {
-        AspectRatioFailPolicy::ZoomOut((0.5, 0.5))
-    }
-}
-
-impl AspectRatioFailPolicy {
-    /// return the src and dst to use, respectively
-    pub fn get(
-        &self,
-        src: TextureRectF,
-        dst: crate::ui::util::rect::FRect,
-    ) -> Option<(TextureRectF, TextureRectF)> {
-        match self {
-            AspectRatioFailPolicy::Stretch => {
-                let dst: Option<TextureRectF> = dst.into();
-                match dst {
-                    Some(dst) => Some((src.into(), dst)),
-                    None => None,
-                }
-            }
-            AspectRatioFailPolicy::ZoomOut((zoom_x, zoom_y)) => {
-                let src_aspect_ratio = src.w.get() / src.h.get();
-                if dst.h == 0. {
-                    return None; // guard div + can't drawn zero area texture
-                }
-                let dst_aspect_ratio = dst.w / dst.h;
-
-                let maybe_dst: Option<TextureRectF> = if src_aspect_ratio > dst_aspect_ratio {
-                    // padding at the top and bottom; scale down the size of the
-                    // src so the width matches the destination
-                    let scale_down = dst.w / src.w.get();
-                    let dst_width = src.w.get() * scale_down;
-                    let dst_height = src.h.get() * scale_down;
-                    let dst_y_offset = (dst.h - dst_height) * zoom_y;
-                    let maybe_dst = crate::ui::util::rect::FRect {
-                        x: dst.x,
-                        y: dst.y + dst_y_offset,
-                        w: dst_width,
-                        h: dst_height,
-                    };
-
-                    maybe_dst.into()
-                } else {
-                    // padding at the left and right; scale down the size of the
-                    // src so the height matches the destination
-                    let scale_down = dst.h / src.h.get();
-                    let dst_width = src.w.get() * scale_down;
-                    let dst_height = src.h.get() * scale_down;
-                    let dst_x_offset = (dst.w - dst_width) * zoom_x;
-
-                    let maybe_dst = crate::ui::util::rect::FRect {
-                        x: dst.x + dst_x_offset,
-                        y: dst.y,
-                        w: dst_width,
-                        h: dst_height,
-                    };
-
-                    maybe_dst.into()
-                };
-                match maybe_dst {
-                    Some(dst) => Some((src.into(), dst)),
-                    None => None,
-                }
-            }
-            AspectRatioFailPolicy::ZoomIn((zoom_x, zoom_y)) => {
-                let src_aspect_ratio = src.w.get() / src.h.get();
-                if dst.h == 0. || dst.w == 0. {
-                    return None; // guard div + can't drawn zero area texture
-                }
-                let dst_aspect_ratio = dst.w / dst.h;
-
-                let maybe_src: Option<TextureRectF> = if src_aspect_ratio > dst_aspect_ratio {
-                    let width = dst_aspect_ratio * src.h.get();
-                    let x = (src.w.get() - width) * zoom_x;
-                    FRect {
-                        x: src.x.get() + x,
-                        y: src.y.get(),
-                        w: width,
-                        h: src.h.get(),
-                    }
-                    .into()
-                } else {
-                    let height = (src.w.get() / dst.w) * dst.h;
-                    let y = (src.h.get() - height) * zoom_y;
-                    FRect {
-                        x: src.x.get(),
-                        y: src.y.get() + y,
-                        w: src.w.get(),
-                        h: height,
-                    }
-                    .into()
-                };
-
-                let maybe_dst: Option<TextureRectF> = dst.into();
-                match maybe_dst {
-                    Some(dst) => match maybe_src {
-                        Some(src) => Some((src, dst)),
-                        None => None,
-                    },
-                    None => None,
-                }
-            }
-        }
     }
 }

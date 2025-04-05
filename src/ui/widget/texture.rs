@@ -2,12 +2,16 @@ use std::{ops::Not, path::PathBuf};
 
 use crate::{
     core::{
-        texture_rect::{AspectRatioFailPolicy, TextureRect, TextureSource},
+        texture_rect::{TextureRect, TextureRectF, TextureSource},
         TextureHandle,
     },
-    ui::util::length::{
-        AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MaxLenPolicy, MinLen,
-        MinLenFailPolicy, MinLenPolicy, PreferredPortion,
+    ui::util::{
+        aspect_ratio::AspectRatioFailPolicy,
+        length::{
+            AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MaxLenPolicy, MinLen,
+            MinLenFailPolicy, MinLenPolicy, PreferredPortion,
+        },
+        rect::FRect,
     },
 };
 
@@ -209,7 +213,13 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Texture {
 
         let maybe_src_dst = self.aspect_ratio_fail_policy.get(src.into(), self.draw_pos);
         if let Some((src, dst)) = maybe_src_dst {
-            texture.copy_f(src, dst)?;
+            // snap dst to grid
+            let dst: FRect = dst.into();
+            let maybe_dst: Option<TextureRect> = dst.into();
+            if let Some(dst) = maybe_dst {
+                let dst: TextureRectF = dst.into();
+                texture.copy_f(src, dst)?;
+            }
         }
 
         Ok(())

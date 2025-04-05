@@ -17,8 +17,6 @@ pub struct CheckBox<'state> {
     /// square
     pub max: MaxLen,
 
-    pub toggle_sound: Option<PathBuf>,
-
     pub check: TextureRect,
     pub check_faded: TextureRect,
     pub uncheck: TextureRect,
@@ -26,6 +24,9 @@ pub struct CheckBox<'state> {
 
     pub checked: &'state Cell<bool>,
     pub changed: &'state Cell<bool>,
+
+    /// a button which can be used to toggle this checkbox
+    pub hotkey: Option<u8>,
 
     /// state stored for draw from update
     draw_pos: FRect,
@@ -54,9 +55,9 @@ impl<'state> CheckBox<'state> {
             uncheck_faded,
             checked,
             changed,
+            hotkey: None,
             draw_pos: Default::default(),
             hovered: false,
-            toggle_sound: None,
         }
     }
 }
@@ -85,7 +86,7 @@ impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for CheckBox<'state> 
     fn update(
         &mut self,
         event: super::WidgetUpdateEvent,
-        sys_interface: &mut T,
+        _sys_interface: &mut T,
     ) -> Result<bool, String> {
         self.changed.set(false);
         self.draw_pos = event.position;
@@ -96,19 +97,30 @@ impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for CheckBox<'state> 
         };
         for e in event.events.iter_mut().filter(|e| e.available()) {
             match e.e {
+                crate::core::event::Event::Key(key_event) => {
+                    if let Some(hotkey) = self.hotkey {
+                        if key_event.key == hotkey {
+                            e.set_consumed();
+                            if !key_event.down {
+                                // rising edge
+                                self.checked.set(!self.checked.get());
+                                self.changed.set(true);
+                            }
+                        }
+                    }
+                }
                 crate::core::event::Event::Mouse(mouse) => {
                     if non_zero_area.contains_point((mouse.x, mouse.y))
                         && event.clipping_rect.contains_point((mouse.x, mouse.y))
                     {
-                        self.hovered = true;
-                        if mouse.down && mouse.changed {
-                            // on rising edge
+                        if mouse.changed {
                             e.set_consumed();
+                        }
+                        self.hovered = true;
+                        if !mouse.down && mouse.changed {
+                            // rising edge
                             self.checked.set(!self.checked.get());
                             self.changed.set(true);
-                            if let Some(toggle_sound) = &self.toggle_sound {
-                                sys_interface.sound(toggle_sound, 0., 0.)?;
-                            }
                         }
                     } else {
                         self.hovered = false;

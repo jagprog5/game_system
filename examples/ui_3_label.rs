@@ -1,10 +1,11 @@
 use std::{cell::Cell, time::Duration};
 
 use game_system::{
-    core::{color::Color, texture_rect::AspectRatioFailPolicy},
+    core::color::Color,
     ui::{
         layout::{horizontal_layout::HorizontalLayout, vertical_layout::VerticalLayout},
         util::{
+            aspect_ratio::AspectRatioFailPolicy,
             length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy},
             rust::CellRefOrCell,
         },

@@ -6,11 +6,10 @@ pub fn capped_next_power_of_two(n: NonZeroU16) -> NonZeroU16 {
     // 0000 0000 1000 0000
     if leading + trailing >= 15 {
         // power of two detected. return as is.
-        // safety - will return 0 only if 0 is the input
         return n;
     }
 
-    // safety - clearly every branch gives non zero
+    // safety - each branch literally states nonzero
     unsafe {
         NonZeroU16::new_unchecked(match leading {
             // 0000 0000 0000 0000

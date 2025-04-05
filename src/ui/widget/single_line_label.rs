@@ -1,8 +1,9 @@
 use std::num::NonZeroU16;
 
 use crate::core::color::Color;
-use crate::core::texture_rect::{AspectRatioFailPolicy, TextureRect};
+use crate::core::texture_rect::{TextureRect, TextureRectF};
 use crate::core::{NonEmptyStr, TextureHandle};
+use crate::ui::util::aspect_ratio::AspectRatioFailPolicy;
 use crate::ui::util::length::{
     AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MaxLenPolicy, MinLen,
     MinLenFailPolicy, MinLenPolicy, PreferredPortion,
@@ -190,7 +191,13 @@ impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for SingleLineLabel<'
 
         let maybe_src_dst = self.aspect_ratio_fail_policy.get(src.into(), self.draw_pos);
         if let Some((src, dst)) = maybe_src_dst {
-            texture.copy_f(src, dst)?;
+            // snap dst to grid
+            let dst: FRect = dst.into();
+            let maybe_dst: Option<TextureRect> = dst.into();
+            if let Some(dst) = maybe_dst {
+                let dst: TextureRectF = dst.into();
+                texture.copy_f(src, dst)?;
+            }
         }
 
         Ok(())

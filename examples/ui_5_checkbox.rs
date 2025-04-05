@@ -74,7 +74,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
             h: sixteen,
         },
     );
-    checkbox.toggle_sound = Some(click_sound_path);
+    checkbox.hotkey = Some(b'a');
 
     let drag_state = Cell::new(DragState::default());
     let scroll_x = Cell::new(0i32);
@@ -94,6 +94,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         let r = update_gui(&mut scroller, events, system, dt)?;
 
         if changed.get() {
+            system.sound(&click_sound_path, 0., 0.)?;
             if checked.get() {
                 system.recreate_window(None)?;
             } else {

@@ -34,6 +34,7 @@ impl TextureKey {
         let data_len = 1 + texture_path.as_os_str().as_bytes().len();
         data.reserve_exact(data_len);
         unsafe {
+            // safety, debug assert below
             data.set_len(data_len);
         }
         data[0] = b'\x00';
@@ -57,6 +58,7 @@ impl TextureKey {
         let mut data: Vec<u8> = Default::default();
         data.reserve_exact(data_len);
         unsafe {
+            // safety, debug assert below
             data.set_len(data_len);
         }
         let mut index = 0;
@@ -82,6 +84,7 @@ impl TextureKey {
         let mut data: Vec<u8> = Default::default();
         data.reserve_exact(data_len);
         unsafe {
+            // safety, debug assert below
             data.set_len(data_len);
         }
         let mut index = 0;
