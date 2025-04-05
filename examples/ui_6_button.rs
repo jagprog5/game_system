@@ -57,6 +57,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         &button_release,
     );
     button.sizing_inherit_choice = ButtonInheritSizing::Hovered;
+    button.hotkey = Some(b'a');
 
     let background_path = Path::new(".")
         .join("examples")

@@ -2,7 +2,6 @@ mod cache_checker;
 mod font;
 mod math;
 mod texture_key;
-mod texture_wrapper;
 
 use std::{
     collections::BTreeMap,
@@ -31,7 +30,6 @@ use sdl2::{
     AudioSubsystem, EventPump, Sdl, VideoSubsystem,
 };
 use texture_key::TextureKey;
-use texture_wrapper::TextureWrapper;
 
 use crate::core::{
     color::Color,
@@ -69,6 +67,16 @@ fn music_finished_hook() {
         }
         .unwrap();
         ctx.current_music = Some(next_music);
+    }
+}
+
+struct TextureWrapper(pub sdl2::render::Texture);
+
+impl Drop for TextureWrapper {
+    // safe destroy(), since these Textures will be dropped before the parent
+    // canvas + creator is dropped
+    fn drop(&mut self) {
+        unsafe { sdl2::sys::SDL_DestroyTexture(self.0.raw()) }
     }
 }
 
@@ -834,18 +842,21 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
         sdl2::event::Event::Quit { .. } => return Some(Event::Quit),
         sdl2::event::Event::Window { win_event, .. } => match win_event {
             sdl2::event::WindowEvent::SizeChanged(w, h) => {
-                let i32_to_nonzero_u32 = |i: i32| -> NonZeroU32 {
-                    unsafe {
-                        if i <= 0 {
-                            NonZeroU32::new_unchecked(1)
-                        } else {
-                            NonZeroU32::new_unchecked(i as u32)
-                        }
-                    }
+                let i32_to_nonzero_u32 = |i: i32| -> Option<NonZeroU32> {
+                    NonZeroU32::new(match i.try_into() {
+                        Ok(v) => v,
+                        Err(_) => return None,
+                    })
                 };
                 return Some(Event::Window(crate::core::event::Window {
-                    width: i32_to_nonzero_u32(w),
-                    height: i32_to_nonzero_u32(h),
+                    width: match i32_to_nonzero_u32(w) {
+                        Some(v) => v,
+                        None => return None,
+                    },
+                    height: match i32_to_nonzero_u32(h) {
+                        Some(v) => v,
+                        None => return None,
+                    },
                 }));
             }
             _ => {}
