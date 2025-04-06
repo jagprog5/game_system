@@ -31,6 +31,9 @@ pub enum ScrollAspectRatioDirectionPolicy {
     Literal(AspectRatioPreferredDirection),
 }
 
+pub static SCROLLER_DRAG_DEAD_ZONE_DEFAULT: u32 = 10;
+pub static SCROLLER_SCROLL_WHEEL_SENSITIVITY_DEFAULT: i32 = 10;
+
 /// translates its content - facilitates scrolling. also applies clipping rect
 /// to contained content
 ///
@@ -46,6 +49,7 @@ pub struct Scroller<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_
     /// manhattan distance that the mouse must travel before it's considered a
     /// click and drag scroll
     pub drag_deadzone: u32,
+    pub scroll_wheel_sensitivity: i32,
     pub scroll_x_enabled: bool,
     pub scroll_y_enabled: bool,
     /// for drag scrolling
@@ -83,7 +87,8 @@ impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>>
     ) -> Self {
         Self {
             drag_state,
-            drag_deadzone: 10,
+            drag_deadzone: SCROLLER_DRAG_DEAD_ZONE_DEFAULT,
+            scroll_wheel_sensitivity: SCROLLER_SCROLL_WHEEL_SENSITIVITY_DEFAULT,
             scroll_x_enabled,
             scroll_y_enabled,
             scroll_x,
@@ -278,8 +283,14 @@ impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>> Widget<'
                     if pos.contains_point((m.x, m.y))
                         && event.clipping_rect.contains_point((m.x, m.y))
                     {
-                        self.scroll_x.set(self.scroll_x.get() - m.wheel_dx * 10);
-                        self.scroll_y.set(self.scroll_y.get() + m.wheel_dy * 10);
+                        self.scroll_x.set(
+                            self.scroll_x.get()
+                                - m.wheel_dx * self.scroll_wheel_sensitivity,
+                        );
+                        self.scroll_y.set(
+                            self.scroll_y.get()
+                                + m.wheel_dy * self.scroll_wheel_sensitivity,
+                        );
                     }
                 }
                 crate::core::event::Event::Mouse(m) => {

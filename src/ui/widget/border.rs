@@ -23,6 +23,11 @@ use super::{Widget, WidgetUpdateEvent};
 pub struct Border<'font_data, 'b, T: crate::core::System<'font_data> + 'b> {
     pub contained: Box<dyn Widget<'font_data, T> + 'b>,
 
+    pub top: bool,
+    pub left: bool,
+    pub bottom: bool,
+    pub right: bool,
+
     // scale not supported. for details, see
     // game_system::ui::widget::background::Background
     //
@@ -51,7 +56,33 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Border<'font_data,
             length_texture_src,
             corner_texture_src,
             border_draw_pos: Default::default(),
+            top: true,
+            left: true,
+            bottom: true,
+            right: true,
         }
+    }
+
+    fn vertical_border_count(&self) -> u32 {
+        let mut ret = 0;
+        if self.bottom {
+            ret += 1;
+        }
+        if self.top {
+            ret += 1;
+        }
+        ret
+    }
+
+    fn horizontal_border_count(&self) -> u32 {
+        let mut ret = 0;
+        if self.left {
+            ret += 1;
+        }
+        if self.right {
+            ret += 1;
+        }
+        ret
     }
 }
 
@@ -67,20 +98,20 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
         pref_h: f32,
         sys_interface: &mut T,
     ) -> Option<Result<f32, String>> {
-        let sub_amount = self.length_texture_src.h.get() * 2; // * 2 for each side
-        let sub_amount = sub_amount as f32;
+        let vertical_subtract_amount =
+            self.vertical_border_count() * self.length_texture_src.h.get();
+        let vertical_subtract_amount = vertical_subtract_amount as f32;
+        let horizontal_add_amount =
+            self.horizontal_border_count() * self.length_texture_src.h.get();
+        let horizontal_add_amount = horizontal_add_amount as f32;
+
         // subtract border width from the pref input before passing to the
         // contained widget. then, add it back after getting the result
-        let (amount_subtracted, pref_h) = if sub_amount >= pref_h {
-            // atypical case (guard against subtract into negative range)
-            (pref_h, 0.)
-        } else {
-            // typical case
-            (sub_amount, pref_h - sub_amount)
-        };
+        let pref_h = pref_h - vertical_subtract_amount;
+        debug_assert!(pref_h >= 0.); // safe since min() and max() assure this
         self.contained
             .preferred_width_from_height(pref_h, sys_interface)
-            .map(|some| some.map(|ok| ok + amount_subtracted))
+            .map(|some| some.map(|ok| ok + horizontal_add_amount))
     }
 
     fn preferred_height_from_width(
@@ -88,20 +119,19 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
         pref_w: f32,
         sys_interface: &mut T,
     ) -> Option<Result<f32, String>> {
-        let sub_amount = self.length_texture_src.h.get() * 2; // * 2 for each side
-        let sub_amount = sub_amount as f32;
+        let horizontal_subtract_amount =
+            self.horizontal_border_count() * self.length_texture_src.h.get();
+        let horizontal_subtract_amount = horizontal_subtract_amount as f32;
+        let vertical_add_amount = self.vertical_border_count() * self.length_texture_src.h.get();
+        let vertical_add_amount = vertical_add_amount as f32;
+
         // subtract border width from the pref input before passing to the
         // contained widget. then, add it back after getting the result
-        let (amount_subtracted, pref_w) = if sub_amount >= pref_w {
-            // atypical case (guard against subtract into negative range)
-            (pref_w, 0.)
-        } else {
-            // typical case
-            (sub_amount, pref_w - sub_amount)
-        };
+        let pref_w = pref_w - horizontal_subtract_amount;
+        debug_assert!(pref_w >= 0.);
         self.contained
             .preferred_height_from_width(pref_w, sys_interface)
-            .map(|some| some.map(|ok| ok + amount_subtracted))
+            .map(|some| some.map(|ok| ok + vertical_add_amount))
     }
 
     fn preferred_ratio_exceed_parent(&self) -> bool {
@@ -125,17 +155,27 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
     }
 
     fn min(&self, sys_interface: &mut T) -> Result<(MinLen, MinLen), String> {
-        let sub_amount = self.length_texture_src.h.get() * 2; // * 2 for each side
-        let baseline = MinLen(sub_amount as f32);
+        let horizontal_min_add = self.horizontal_border_count() * self.length_texture_src.h.get();
+        let horizontal_min_add = MinLen(horizontal_min_add as f32);
+        let vertical_min_add = self.vertical_border_count() * self.length_texture_src.h.get();
+        let vertical_min_add = MinLen(vertical_min_add as f32);
         let m = self.contained.min(sys_interface)?;
-        Ok((m.0.combined(baseline), m.1.combined(baseline)))
+        Ok((
+            m.0.combined(horizontal_min_add),
+            m.1.combined(vertical_min_add),
+        ))
     }
 
     fn max(&self, sys_interface: &mut T) -> Result<(MaxLen, MaxLen), String> {
-        let sub_amount = self.length_texture_src.h.get() * 2; // * 2 for each side
-        let baseline = MaxLen(sub_amount as f32);
+        let horizontal_max_add = self.horizontal_border_count() * self.length_texture_src.h.get();
+        let horizontal_max_add = MaxLen(horizontal_max_add as f32);
+        let vertical_max_add = self.vertical_border_count() * self.length_texture_src.h.get();
+        let vertical_max_add = MaxLen(vertical_max_add as f32);
         let m = self.contained.max(sys_interface)?;
-        Ok((m.0.combined(baseline), m.1.combined(baseline)))
+        Ok((
+            m.0.combined(horizontal_max_add),
+            m.1.combined(vertical_max_add),
+        ))
     }
 
     fn update(
@@ -146,10 +186,10 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
         self.border_draw_pos = event.position;
         let style_width = (self.length_texture_src.h.get()) as f32;
         let position_for_child = crate::ui::util::rect::FRect {
-            x: event.position.x + style_width,
-            y: event.position.y + style_width,
-            w: event.position.w - style_width * 2.,
-            h: event.position.h - style_width * 2., // deliberately allow negative
+            x: event.position.x + if self.left { style_width } else { 0. },
+            y: event.position.y + if self.top { style_width } else { 0. },
+            w: event.position.w - self.horizontal_border_count() as f32 * style_width,
+            h: event.position.h - self.vertical_border_count() as f32 * style_width,
         };
         self.contained
             .update(event.sub_event(position_for_child), sys_interface)
@@ -160,13 +200,20 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
 
         let maybe_pos: Option<TextureRect> = self.border_draw_pos.into();
 
+        // draw border if non empty position (and snap to grid)
         if let Some(pos) = maybe_pos {
-            // draw border if non empty position
+            let border_width = self.length_texture_src.h.get() as i32;
+
+            let l_border_width = border_width as i32 * if self.left { 1 } else { 0 };
+            let r_border_width = border_width as i32 * if self.right { 1 } else { 0 };
+            let t_border_width = border_width as i32 * if self.top { 1 } else { 0 };
+            let b_border_width = border_width as i32 * if self.bottom { 1 } else { 0 };
+
             let mut txt = sys_interface.texture(&self.texture_path)?;
-            {
-                // top
-                let mut x_offset = pos.x + self.length_texture_src.h.get() as i32;
-                let mut top_amount_left = pos.w.get() - self.length_texture_src.h.get() * 2;
+            if self.top {
+                let mut x_offset = pos.x + l_border_width;
+                let mut top_amount_left =
+                    pos.w.get() - l_border_width as u32 - r_border_width as u32;
                 loop {
                     if top_amount_left > self.length_texture_src.w.get() {
                         txt.copy(
@@ -205,10 +252,10 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                 }
             }
 
-            {
-                // bottom
-                let mut x_offset = pos.x + self.length_texture_src.h.get() as i32;
-                let mut bottom_amount_left = pos.w.get() - self.length_texture_src.h.get() * 2;
+            if self.bottom {
+                let mut x_offset = pos.x + l_border_width;
+                let mut bottom_amount_left =
+                    pos.w.get() - l_border_width as u32 - r_border_width as u32;
                 loop {
                     if bottom_amount_left > self.length_texture_src.w.get() {
                         txt.copy(
@@ -216,8 +263,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                             TextureDestination(
                                 TextureRect {
                                     x: x_offset,
-                                    y: pos.y + pos.h.get() as i32
-                                        - self.length_texture_src.h.get() as i32,
+                                    y: pos.y + pos.h.get() as i32 - border_width,
                                     w: self.length_texture_src.w,
                                     h: self.length_texture_src.h,
                                 },
@@ -277,10 +323,10 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                 }
             }
 
-            {
-                // right
-                let mut y_offset = pos.y + self.length_texture_src.h.get() as i32;
-                let mut right_amount_left = pos.h.get() - self.length_texture_src.h.get() * 2;
+            if self.right {
+                let mut y_offset = pos.y + t_border_width;
+                let mut right_amount_left =
+                    pos.h.get() - t_border_width as u32 - b_border_width as u32;
                 loop {
                     if right_amount_left > self.length_texture_src.w.get() {
                         txt.copy(
@@ -347,10 +393,10 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                 }
             }
 
-            {
-                // left
-                let mut y_offset = pos.y + self.length_texture_src.h.get() as i32;
-                let mut left_amount_left = pos.h.get() - self.length_texture_src.h.get() * 2;
+            if self.left {
+                let mut y_offset = pos.y + t_border_width;
+                let mut left_amount_left =
+                    pos.h.get() - t_border_width as u32 - b_border_width as u32;
                 loop {
                     if left_amount_left > self.length_texture_src.w.get() {
                         txt.copy(
@@ -418,87 +464,95 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
             }
 
             // corners
-            txt.copy(
-                self.corner_texture_src,
-                TextureRect {
-                    x: pos.x + pos.w.get() as i32 - self.length_texture_src.h.get() as i32,
-                    y: pos.y,
-                    w: self.corner_texture_src.w,
-                    h: self.corner_texture_src.h,
-                },
-            )?;
-
-            txt.copy(
-                self.corner_texture_src,
-                TextureDestination(
+            if self.top && self.right {
+                txt.copy(
+                    self.corner_texture_src,
                     TextureRect {
-                        x: pos.x,
+                        x: pos.x + pos.w.get() as i32 - border_width,
                         y: pos.y,
                         w: self.corner_texture_src.w,
                         h: self.corner_texture_src.h,
                     },
-                    Some(TextureRotation {
-                        angle: 0.try_into().unwrap(),
-                        point: None,
-                        flip_horizontal: true,
-                        flip_vertical: false,
-                    }),
-                    Color {
-                        r: 0xFF,
-                        g: 0xFF,
-                        b: 0xFF,
-                        a: 0xFF,
-                    },
-                ),
-            )?;
+                )?;
+            }
 
-            txt.copy(
-                self.corner_texture_src,
-                TextureDestination(
-                    TextureRect {
-                        x: pos.x + pos.w.get() as i32 - self.length_texture_src.h.get() as i32,
-                        y: pos.y + pos.h.get() as i32 - self.length_texture_src.h.get() as i32,
-                        w: self.corner_texture_src.w,
-                        h: self.corner_texture_src.h,
-                    },
-                    Some(TextureRotation {
-                        angle: 0.try_into().unwrap(),
-                        point: None,
-                        flip_horizontal: false,
-                        flip_vertical: true,
-                    }),
-                    Color {
-                        r: 0xFF,
-                        g: 0xFF,
-                        b: 0xFF,
-                        a: 0xFF,
-                    },
-                ),
-            )?;
+            if self.top && self.left {
+                txt.copy(
+                    self.corner_texture_src,
+                    TextureDestination(
+                        TextureRect {
+                            x: pos.x,
+                            y: pos.y,
+                            w: self.corner_texture_src.w,
+                            h: self.corner_texture_src.h,
+                        },
+                        Some(TextureRotation {
+                            angle: 0.try_into().unwrap(),
+                            point: None,
+                            flip_horizontal: true,
+                            flip_vertical: false,
+                        }),
+                        Color {
+                            r: 0xFF,
+                            g: 0xFF,
+                            b: 0xFF,
+                            a: 0xFF,
+                        },
+                    ),
+                )?;
+            }
 
-            txt.copy(
-                self.corner_texture_src,
-                TextureDestination(
-                    TextureRect {
-                        x: pos.x,
-                        y: pos.y + pos.h.get() as i32 - self.length_texture_src.h.get() as i32,
-                        w: self.corner_texture_src.w,
-                        h: self.corner_texture_src.h,
-                    },
-                    Some(TextureRotation {
-                        angle: 0.try_into().unwrap(),
-                        point: None,
-                        flip_horizontal: true,
-                        flip_vertical: true,
-                    }),
-                    Color {
-                        r: 0xFF,
-                        g: 0xFF,
-                        b: 0xFF,
-                        a: 0xFF,
-                    },
-                ),
-            )?;
+            if self.bottom && self.right {
+                txt.copy(
+                    self.corner_texture_src,
+                    TextureDestination(
+                        TextureRect {
+                            x: pos.x + pos.w.get() as i32 - border_width,
+                            y: pos.y + pos.h.get() as i32 - border_width,
+                            w: self.corner_texture_src.w,
+                            h: self.corner_texture_src.h,
+                        },
+                        Some(TextureRotation {
+                            angle: 0.try_into().unwrap(),
+                            point: None,
+                            flip_horizontal: false,
+                            flip_vertical: true,
+                        }),
+                        Color {
+                            r: 0xFF,
+                            g: 0xFF,
+                            b: 0xFF,
+                            a: 0xFF,
+                        },
+                    ),
+                )?;
+            }
+
+            if self.bottom && self.left {
+                txt.copy(
+                    self.corner_texture_src,
+                    TextureDestination(
+                        TextureRect {
+                            x: pos.x,
+                            y: pos.y + pos.h.get() as i32 - border_width,
+                            w: self.corner_texture_src.w,
+                            h: self.corner_texture_src.h,
+                        },
+                        Some(TextureRotation {
+                            angle: 0.try_into().unwrap(),
+                            point: None,
+                            flip_horizontal: true,
+                            flip_vertical: true,
+                        }),
+                        Color {
+                            r: 0xFF,
+                            g: 0xFF,
+                            b: 0xFF,
+                            a: 0xFF,
+                        },
+                    ),
+                )?;
+            }
         }
         Ok(())
     }
