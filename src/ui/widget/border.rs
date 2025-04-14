@@ -28,6 +28,11 @@ pub struct Border<'font_data, 'b, T: crate::core::System<'font_data> + 'b> {
     pub bottom: bool,
     pub right: bool,
 
+    /// allow the inner content to overlap the same space as the drawn border.
+    /// this can be useful if the border contains transparency  
+    /// default: false
+    pub overlap: bool,
+
     // scale not supported. for details, see
     // game_system::ui::widget::background::Background
     //
@@ -56,6 +61,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Border<'font_data,
             length_texture_src,
             corner_texture_src,
             border_draw_pos: Default::default(),
+            overlap: false,
             top: true,
             left: true,
             bottom: true,
@@ -63,7 +69,11 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Border<'font_data,
         }
     }
 
+    /// used in sizing logic
     fn vertical_border_count(&self) -> u32 {
+        if self.overlap {
+            return 0;
+        }
         let mut ret = 0;
         if self.bottom {
             ret += 1;
@@ -74,7 +84,11 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Border<'font_data,
         ret
     }
 
+    /// used in sizing logic
     fn horizontal_border_count(&self) -> u32 {
+        if self.overlap {
+            return 0;
+        }
         let mut ret = 0;
         if self.left {
             ret += 1;
@@ -186,8 +200,18 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
         self.border_draw_pos = event.position;
         let style_width = (self.length_texture_src.h.get()) as f32;
         let position_for_child = crate::ui::util::rect::FRect {
-            x: event.position.x + if self.left { style_width } else { 0. },
-            y: event.position.y + if self.top { style_width } else { 0. },
+            x: event.position.x
+                + if self.left && !self.overlap {
+                    style_width
+                } else {
+                    0.
+                },
+            y: event.position.y
+                + if self.top && !self.overlap {
+                    style_width
+                } else {
+                    0.
+                },
             w: event.position.w - self.horizontal_border_count() as f32 * style_width,
             h: event.position.h - self.vertical_border_count() as f32 * style_width,
         };
