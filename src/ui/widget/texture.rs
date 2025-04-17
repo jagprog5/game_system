@@ -2,7 +2,8 @@ use std::{ops::Not, path::PathBuf};
 
 use crate::{
     core::{
-        texture_rect::{TextureRect, TextureRectF, TextureSource},
+        color::Color,
+        texture_rect::{TextureDestinationF, TextureRect, TextureRectF, TextureSource},
         TextureHandle,
     },
     ui::util::{
@@ -17,12 +18,16 @@ use crate::{
 
 use super::{Widget, WidgetUpdateEvent};
 
+#[derive(Clone)]
 pub struct Texture {
     pub texture_path: PathBuf,
     pub texture_src: TextureSource,
+    pub color_mod: Color,
 
+    /// applicable when request_aspect_ratio is false
     pub aspect_ratio_fail_policy: AspectRatioFailPolicy,
 
+    /// default: true
     pub request_aspect_ratio: bool,
 
     pub min_w_fail_policy: MinLenFailPolicy,
@@ -35,7 +40,7 @@ pub struct Texture {
     pub max_h_policy: MaxLenPolicy,
     pub pref_w: PreferredPortion,
     pub pref_h: PreferredPortion,
-    pub preferred_link_allowed_exceed_portion: bool,
+    pub preferred_ratio_exceed_parent: bool,
 
     /// state stored for draw from update
     draw_pos: crate::ui::util::rect::FRect,
@@ -46,6 +51,12 @@ impl Texture {
         Texture {
             texture_path: texture_path.to_path_buf(),
             texture_src: Default::default(),
+            color_mod: Color {
+                r: 0xFF,
+                g: 0xFF,
+                b: 0xFF,
+                a: 0xFF,
+            },
             aspect_ratio_fail_policy: Default::default(),
             request_aspect_ratio: true,
             min_w_fail_policy: Default::default(),
@@ -58,7 +69,7 @@ impl Texture {
             max_h_policy: Default::default(),
             pref_w: Default::default(),
             pref_h: Default::default(),
-            preferred_link_allowed_exceed_portion: Default::default(),
+            preferred_ratio_exceed_parent: Default::default(),
             draw_pos: Default::default(),
         }
     }
@@ -66,7 +77,7 @@ impl Texture {
 
 impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Texture {
     fn preferred_ratio_exceed_parent(&self) -> bool {
-        self.preferred_link_allowed_exceed_portion
+        self.preferred_ratio_exceed_parent
     }
 
     fn min(&self, sys_interface: &mut T) -> Result<(MinLen, MinLen), String> {
@@ -218,6 +229,7 @@ impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Texture {
             let maybe_dst: Option<TextureRect> = dst.into();
             if let Some(dst) = maybe_dst {
                 let dst: TextureRectF = dst.into();
+                let dst = TextureDestinationF(dst, None, self.color_mod);
                 texture.copy_f(src, dst)?;
             }
         }

@@ -1,17 +1,22 @@
-pub mod debug;
 pub mod strut;
 pub mod texture;
 
-pub mod background;
 pub mod border;
+pub mod tiled_texture;
 
 pub mod multi_line_label;
 pub mod single_line_label;
 
 pub mod checkbox;
 
+pub mod background;
 pub mod button;
+pub mod clipper;
+pub mod scroller;
 pub mod sizing;
+
+pub mod horizontal_layout;
+pub mod vertical_layout;
 
 use std::{
     num::NonZeroU32,

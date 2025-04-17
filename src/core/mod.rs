@@ -89,10 +89,6 @@ pub trait System<'font_data>: Sized {
     /// apply nearest neighbor sampling
     fn texture(&mut self, image_path: &Path) -> Result<Self::ImageTextureHandle<'_>, String>;
 
-    /// equivalent to texture() but produce a very small software rendered
-    /// texture that's built-in
-    fn missing_texture(&mut self) -> Result<Self::ImageTextureHandle<'_>, String>;
-
     /// render text or reuse from (unspecified) cache. the texture instance can
     /// then be used to draw to the screen
     ///

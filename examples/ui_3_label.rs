@@ -3,7 +3,6 @@ use std::{cell::Cell, time::Duration};
 use game_system::{
     core::color::Color,
     ui::{
-        layout::{horizontal_layout::HorizontalLayout, vertical_layout::VerticalLayout},
         util::{
             aspect_ratio::AspectRatioFailPolicy,
             length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy},
@@ -15,6 +14,7 @@ use game_system::{
             single_line_label::SingleLineLabel,
             update_gui, HandlerReturnValue, Widget,
         },
+        widget::{horizontal_layout::HorizontalLayout, vertical_layout::VerticalLayout},
     },
 };
 

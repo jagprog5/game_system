@@ -239,7 +239,7 @@ impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>> Widget<'
 
     fn preferred_ratio_exceed_parent(&self) -> bool {
         self.sizing
-            .preferred_link_allowed_exceed_portion(self.contained.as_ref())
+            .preferred_ratio_exceed_parent(self.contained.as_ref())
     }
 
     fn update(

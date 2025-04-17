@@ -3,19 +3,18 @@ use std::{cell::Cell, num::NonZeroU32, path::Path, time::Duration};
 use game_system::{
     core::{color::Color, texture_rect::TextureRect},
     ui::{
-        layout::{
-            scroller::{DragState, Scroller},
-            vertical_layout::VerticalLayout,
-        },
         util::length::{MaxLen, MaxLenFailPolicy, MinLenFailPolicy, PreferredPortion},
+        widget::vertical_layout::VerticalLayout,
         widget::{
             background::Background,
             border::Border,
             button::{Button, ButtonInheritSizing},
             gui_loop,
             multi_line_label::{MultiLineLabel, MultiLineMinHeightFailPolicy},
+            scroller::{DragState, Scroller},
             single_line_label::SingleLineLabel,
             sizing::{CustomSizing, NestedContentSizing},
+            tiled_texture::TiledTexture,
             update_gui, HandlerReturnValue, Widget,
         },
     },
@@ -72,7 +71,8 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     let sixteen = unsafe { NonZeroU32::new_unchecked(16) };
 
     let background = Background::new(
-        Some((
+        Box::new(button),
+        Box::new(TiledTexture::new((
             background_path.clone(),
             TextureRect {
                 x: 0,
@@ -81,8 +81,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
                 h: sixteen,
             }
             .into(),
-        )),
-        Box::new(button),
+        ))),
     );
 
     let button = Border::new(
@@ -143,8 +142,10 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     let mut background_sizing = CustomSizing::default();
     background_sizing.preferred_h = PreferredPortion(0.75);
     background_sizing.preferred_w = PreferredPortion(0.75);
-    let mut background = Background::<'font_data, '_, T>::new(
-        Some((
+
+    let mut background = Background::new(
+        Box::new(layout),
+        Box::new(TiledTexture::new((
             background_path,
             TextureRect {
                 x: 0,
@@ -153,8 +154,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
                 h: sixteen,
             }
             .into(),
-        )),
-        Box::new(layout),
+        ))),
     );
     background.sizing = NestedContentSizing::Custom(background_sizing);
 

@@ -2,7 +2,7 @@ use std::{os::unix::ffi::OsStrExt, path::Path};
 
 /// contains some encoding of the resource. used as lru key.
 ///
-/// can contain one of three variants, identified by the first byte.
+/// contains variants, identified by the first byte.
 ///
 /// for texture from file
 ///
@@ -16,7 +16,7 @@ use std::{os::unix::ffi::OsStrExt, path::Path};
 ///
 /// 0x02 + u16(16pt) + u32(123pix) + "some text"
 ///
-/// debug texture:
+/// special value for cache_marker_key:
 ///
 /// 0xFF
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -25,7 +25,7 @@ pub struct TextureKey {
 }
 
 impl TextureKey {
-    pub fn debug_key() -> Self {
+    pub fn cache_marker_key() -> Self {
         Self { data: vec![0xff] }
     }
 

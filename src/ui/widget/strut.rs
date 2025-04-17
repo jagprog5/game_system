@@ -3,6 +3,7 @@ use crate::ui::util::length::{MaxLen, MinLen, PreferredPortion};
 use super::Widget;
 
 /// create horizontal or vertical spaces
+#[derive(Debug, Clone)]
 pub struct Strut {
     pub min_w: MinLen,
     pub min_h: MinLen,

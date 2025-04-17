@@ -2,14 +2,12 @@ use std::{cell::Cell, num::NonZeroU32, path::Path, time::Duration};
 
 use game_system::{
     core::{color::Color, texture_rect::TextureRect},
-    ui::{
-        layout::scroller::{DragState, Scroller},
-        widget::{
-            checkbox::CheckBox,
-            gui_loop,
-            sizing::{CustomSizing, NestedContentSizing},
-            update_gui, HandlerReturnValue, Widget,
-        },
+    ui::widget::{
+        checkbox::CheckBox,
+        gui_loop,
+        scroller::{DragState, Scroller},
+        sizing::{CustomSizing, NestedContentSizing},
+        update_gui, HandlerReturnValue, Widget,
     },
 };
 

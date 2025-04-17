@@ -9,6 +9,7 @@ use game_system::{
             checkbox::CheckBox,
             gui_loop,
             sizing::{CustomSizing, NestedContentSizing},
+            tiled_texture::TiledTexture,
             update_gui, HandlerReturnValue, Widget,
         },
     },
@@ -79,8 +80,10 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     let mut background_sizing = CustomSizing::default();
     background_sizing.preferred_h = PreferredPortion(0.75);
     background_sizing.preferred_w = PreferredPortion(0.75);
-    let mut background = Background::<'font_data, '_, T>::new(
-        Some((
+
+    let mut background = Background::new(
+        Box::new(checkbox),
+        Box::new(TiledTexture::new((
             background_path,
             TextureRect {
                 x: 0,
@@ -89,8 +92,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
                 h: sixteen,
             }
             .into(),
-        )),
-        Box::new(checkbox),
+        ))),
     );
     background.sizing = NestedContentSizing::Custom(background_sizing);
 

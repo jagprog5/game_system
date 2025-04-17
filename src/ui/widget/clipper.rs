@@ -2,7 +2,7 @@ use crate::{core::clipping_rect::ClippingRect, ui::widget::Widget};
 
 /// contains something. when it is draw, a clipping rect is set to not allow
 /// drawing to go past the widget's given position
-pub struct Clipper<'b, 'font_data, T: crate::core::System<'font_data>> {
+pub struct Clipper<'font_data, 'b, T: crate::core::System<'font_data>> {
     pub contained: Box<dyn Widget<'font_data, T> + 'b>,
     /// calculated during update, stored for draw.
     ///
@@ -10,7 +10,7 @@ pub struct Clipper<'b, 'font_data, T: crate::core::System<'font_data>> {
     update_clip_rect: ClippingRect,
 }
 
-impl<'b, 'font_data, T: crate::core::System<'font_data>> Clipper<'b, 'font_data, T> {
+impl<'font_data, 'b, T: crate::core::System<'font_data>> Clipper<'font_data, 'b, T> {
     pub fn new(contained: Box<dyn Widget<'font_data, T> + 'b>) -> Self {
         Self {
             contained,
@@ -19,8 +19,8 @@ impl<'b, 'font_data, T: crate::core::System<'font_data>> Clipper<'b, 'font_data,
     }
 }
 
-impl<'b, 'font_data, T: crate::core::System<'font_data>> Widget<'font_data, T>
-    for Clipper<'b, 'font_data, T>
+impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
+    for Clipper<'font_data, 'b, T>
 {
     fn update(
         &mut self,

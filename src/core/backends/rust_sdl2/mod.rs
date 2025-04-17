@@ -1,4 +1,3 @@
-mod cache_checker;
 mod font;
 mod math;
 mod texture_key;
@@ -12,7 +11,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use cache_checker::CacheThrashingChecker;
 use font::Font;
 use lru::LruCache;
 use math::capped_next_power_of_two;
@@ -94,9 +92,6 @@ pub struct RustSDL2System<'font_data> {
 
     /// used for both image textures and text textures
     texture_cache: LruCache<TextureKey, TextureWrapper>,
-    /// used to detect cache thrashing
-    texture_cache_health_checker: CacheThrashingChecker,
-    texture_cache_miss_threshold: u32,
 
     /// associates a point size with a loaded font. discretized (there can only
     /// be a handful of elements)
@@ -344,14 +339,14 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
             // texture cache has a dynamically increasing capacity with some
             // arbitrary small starting capacity. there could be cases where
             // plenty of textures are drawn to the screen at the same time -
-            // wanted to account for this and make it always work
-            texture_cache: LruCache::new(32.try_into().unwrap()),
-            texture_cache_health_checker: Default::default(),
-            // every time the texture cache is doubled, the threshold is also
-            // doubled. just in case there's an entity that loads texture once
-            // per frame or something (but in reality sprite sheets should be
-            // used for that case)
-            texture_cache_miss_threshold: 2,
+            // wanted to account for this and make it always works.
+            //
+            // this occurs through a dummy key. a dummy key is inserted at the
+            // beginning of each frame. if at the end of the frame it got pushed
+            // out of the cache (meaning the entire cache was replaced within
+            // that frame) then the cache capacity is doubled
+            texture_cache: LruCache::new(16.try_into().unwrap()),
+
             loaded_fonts: Default::default(),
             event_pump: sdl.event_pump()?,
             creator,
@@ -374,7 +369,6 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
     ) -> Result<(), String> {
         // texture must be dropped first, before parent canvas / creator
         self.texture_cache.clear();
-        self.texture_cache_health_checker.reset();
 
         let window = match size {
             Some(size) => self._video.window(size.0, size.1.get(), size.2.get()),
@@ -413,7 +407,6 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         let txt = self.texture_cache.try_get_or_insert_mut_ref(
             &texture_key,
             || -> Result<TextureWrapper, String> {
-                self.texture_cache_health_checker.cache_miss_occurred();
                 self.creator.load_texture(image_path).map(|mut txt| {
                     // Nearest scale mode is the default for sdl2 (but not sdl3!)
                     txt.set_blend_mode(sdl2::render::BlendMode::Blend);
@@ -438,20 +431,19 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
     fn present(&mut self) -> Result<(), String> {
         self.canvas.present();
 
-        // see text() for reason
-        let _ = self.missing_texture()?;
+        let cache_fully_replaced_this_frame = self.txt_cache_fully_replaced_this_frame()?;
 
-        let previous_n_frames_had_cache_misses = self.texture_cache_health_checker.frame_end();
-        if previous_n_frames_had_cache_misses >= self.texture_cache_miss_threshold {
-            self.texture_cache_miss_threshold *= 2;
-            debug_assert!(self.texture_cache.cap().get() < 1000); // sane upper bound
+        if cache_fully_replaced_this_frame {
+            // sane upper bound.
+            // it is possible but not likely that this is exceeded
+            debug_assert!(self.texture_cache.cap().get() < 1000);
             self.texture_cache.resize(
                 (self.texture_cache.cap().get() * 2usize)
                     .try_into()
                     .unwrap(),
             );
-            self.texture_cache_health_checker.reset();
         }
+
         Ok(())
     }
 
@@ -480,24 +472,6 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
         let txt = self.texture_cache.try_get_or_insert_mut_ref(
             &texture_key,
             || -> Result<TextureWrapper, String> {
-                // NO!
-                // self.texture_cache_health_checker.cache_miss_occurred();
-
-                // the thinking is as follows: if there is short lived text,
-                // such as from a frame counter (any of the properties change
-                // each frame), then this will cause the cache to keep growing
-                // forever given the current expansion rules (it gives cache
-                // miss each frame and so thrashing is assumed). not having this
-                // here has the same overall effect, it's just checked when
-                // image textures are loaded instead (since the text will push
-                // things out of the cache and then that will be detected when
-                // image texture cache misses occur).
-
-                // there is one parasitic case, if the app only ever draws text
-                // and never draws textures at all, then the cache misses aren't
-                // registered. for safety this is prevented by loading the debug
-                // texture each frame in present()
-
                 // must recreate the texture as it is not in the cache.
                 let font = match self.loaded_fonts.get(&point_size) {
                     Some(v) => v, // point size is available
@@ -776,57 +750,35 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
     fn music_volume(&self) -> f32 {
         sdl2::mixer::Music::get_volume() as f32 / MIX_MAX_VOLUME as f32
     }
+}
 
-    fn missing_texture(&mut self) -> Result<Self::ImageTextureHandle<'_>, String> {
-        let texture_key = TextureKey::debug_key();
+impl<'font_data> RustSDL2System<'font_data> {
+    fn txt_cache_fully_replaced_this_frame(&mut self) -> Result<bool, String> {
+        let texture_key = TextureKey::cache_marker_key();
 
-        let txt = self.texture_cache.try_get_or_insert_mut_ref(
-            &texture_key,
+        let mut ret = false;
+
+        self.texture_cache.try_get_or_insert(
+            texture_key,
             || -> Result<TextureWrapper, String> {
-                self.texture_cache_health_checker.cache_miss_occurred();
-
-                // generate the debug texture
-
+                // recreate the texture since it's not in the cache
+                ret = true;
                 let mut surface =
-                    Surface::new(256, 256, sdl2::pixels::PixelFormatEnum::ARGB8888).unwrap();
-                surface
-                    .set_blend_mode(sdl2::render::BlendMode::None)
-                    .unwrap();
+                    Surface::new(1, 1, sdl2::pixels::PixelFormatEnum::ARGB8888).unwrap();
                 surface.with_lock_mut(|buffer| {
-                    for x in 0i32..256 {
-                        for y in 0i32..256 {
-                            let pixel_offset = (4 * (x + y * 256)) as usize;
-                            if x <= 3 || x >= 252 || y <= 3 || y >= 252 {
-                                let v = ((x / 4 + y / 4) % 2) as u8;
-                                buffer[pixel_offset] = v * 0xff;
-                                buffer[pixel_offset + 1] = v * 0xff;
-                                buffer[pixel_offset + 2] = v * 0xff;
-                                buffer[pixel_offset + 3] = 0xff;
-                            } else {
-                                buffer[pixel_offset] = ((y as f32 / 255.0) * 0xFF as f32) as u8;
-                                buffer[pixel_offset + 1] = ((x as f32 / 255.0) * 0xFF as f32) as u8;
-                                buffer[pixel_offset + 2] = 0xFF - buffer[pixel_offset + 1];
-                                buffer[pixel_offset + 3] = ((x * y) % 0xFF) as u8;
-                            }
-                        }
-                    }
+                    buffer[0] = 0xFF;
+                    buffer[1] = 0xFF;
+                    buffer[2] = 0xFF;
+                    buffer[3] = 0xFF;
                 });
 
                 self.creator
                     .create_texture_from_surface(surface)
-                    .map(|mut txt| {
-                        // Nearest scale mode is the default for sdl2 (but not sdl3!)
-                        txt.set_blend_mode(sdl2::render::BlendMode::Blend);
-                        TextureWrapper(txt)
-                    })
+                    .map(|txt| TextureWrapper(txt))
                     .map_err(|e| e.to_string())
             },
         )?;
-
-        Ok(TextureHandle {
-            txt: &mut txt.0,
-            canvas: &mut self.canvas,
-        })
+        Ok(ret)
     }
 }
 

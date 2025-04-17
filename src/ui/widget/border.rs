@@ -34,7 +34,7 @@ pub struct Border<'font_data, 'b, T: crate::core::System<'font_data> + 'b> {
     pub overlap: bool,
 
     // scale not supported. for details, see
-    // game_system::ui::widget::background::Background
+    // game_system::ui::widget::tiled_texture::TiledTexture
     //
     // pub scale: NonZeroU32,
     /// path to length texture

@@ -1,14 +1,23 @@
-use std::time::Duration;
+use std::{path::Path, time::Duration};
 
 use game_system::{
     core::color::Color,
     ui::{
-        layout::{
-            horizontal_layout::HorizontalLayout,
-            vertical_layout::{MajorAxisMaxLenPolicy, VerticalLayout},
+        util::{
+            aspect_ratio::AspectRatioFailPolicy,
+            length::{
+                MaxLen, MaxLenFailPolicy, MaxLenPolicy, MinLen, MinLenFailPolicy, MinLenPolicy,
+            },
         },
-        util::length::{MaxLenFailPolicy, MinLen, MinLenFailPolicy, MinLenPolicy},
-        widget::{debug::Debug, gui_loop, strut::Strut, update_gui, HandlerReturnValue, Widget},
+        widget::{
+            gui_loop,
+            horizontal_layout::HorizontalLayout,
+            strut::Strut,
+            texture::Texture,
+            update_gui,
+            vertical_layout::{MajorAxisMaxLenPolicy, VerticalLayout},
+            HandlerReturnValue, Widget,
+        },
     },
 };
 
@@ -17,6 +26,11 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
 ) -> Result<(), String> {
     const WIDTH: f32 = 800.;
     const HEIGHT: f32 = 400.;
+
+    let image_path = Path::new(".")
+        .join("examples")
+        .join("assets")
+        .join("test.jpg");
 
     let mut system = T::new(
         Some((
@@ -32,44 +46,63 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     gui_loop(DELAY, &mut system, |system, events, dt| {
         // constructs the whole GUI each frame. other examples don't bother
         // doing this, but it's key to claiming it's a "immediate mode" gui.
-        let mut horizontal_0 = Debug::default();
-        horizontal_0.sizing.min_h = (HEIGHT - 20.).into();
-        horizontal_0.sizing.min_w = 100f32.into();
-        horizontal_0.sizing.max_h = (HEIGHT - 20.).into();
-        horizontal_0.sizing.max_w = (WIDTH / 5.).into();
+        let mut horizontal_0 = Texture::new(image_path.clone());
+        horizontal_0.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
+        horizontal_0.request_aspect_ratio = false;
+        // horizontal_0.
+        horizontal_0.min_h_policy = MinLenPolicy::Literal((HEIGHT - 20.).into());
+        horizontal_0.min_w_policy = MinLenPolicy::Literal(100f32.into());
+        horizontal_0.max_h_policy = MaxLenPolicy::Literal((HEIGHT - 20.).into());
+        horizontal_0.max_w_policy = MaxLenPolicy::Literal((WIDTH / 5.).into());
 
-        let mut horizontal_1 = Debug::default();
-        horizontal_1.sizing.min_h = (HEIGHT - 20.).into();
-        horizontal_1.sizing.min_w = 100f32.into();
-        horizontal_1.sizing.max_h = (HEIGHT - 20.).into();
-        horizontal_1.sizing.max_w = (WIDTH / 4.).into();
-        horizontal_1.sizing.max_h_fail_policy = MaxLenFailPolicy::POSITIVE;
-        horizontal_1.sizing.min_h_fail_policy = MinLenFailPolicy::POSITIVE;
+        let mut horizontal_1 = Texture::new(image_path.clone());
+        horizontal_1.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
+        horizontal_1.request_aspect_ratio = false;
+        horizontal_1.min_h_policy = MinLenPolicy::Literal((HEIGHT - 20.).into());
+        horizontal_1.min_w_policy = MinLenPolicy::Literal(100f32.into());
+        horizontal_1.max_h_policy = MaxLenPolicy::Literal((HEIGHT - 20.).into());
+        horizontal_1.max_w_policy = MaxLenPolicy::Literal((WIDTH / 4.).into());
+        horizontal_1.max_h_fail_policy = MaxLenFailPolicy::POSITIVE;
+        horizontal_1.min_h_fail_policy = MinLenFailPolicy::POSITIVE;
 
-        let mut horizontal_2 = Debug::default();
-        horizontal_2.sizing.min_h = (HEIGHT - 20.).into();
-        horizontal_2.sizing.min_w = 100f32.into();
-        horizontal_2.sizing.max_h = (HEIGHT - 20.).into();
-        horizontal_2.sizing.max_w = (WIDTH / 3.).into();
-        horizontal_2.sizing.max_h_fail_policy = MaxLenFailPolicy::NEGATIVE;
-        horizontal_2.sizing.min_h_fail_policy = MinLenFailPolicy::NEGATIVE;
+        let mut horizontal_2 = Texture::new(image_path.clone());
+        horizontal_2.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
+        horizontal_2.request_aspect_ratio = false;
+        horizontal_2.min_h_policy = MinLenPolicy::Literal((HEIGHT - 20.).into());
+        horizontal_2.min_w_policy = MinLenPolicy::Literal(100f32.into());
+        horizontal_2.max_h_policy = MaxLenPolicy::Literal((HEIGHT - 20.).into());
+        horizontal_2.max_w_policy = MaxLenPolicy::Literal((WIDTH / 3.).into());
+        horizontal_2.max_h_fail_policy = MaxLenFailPolicy::NEGATIVE;
+        horizontal_2.min_h_fail_policy = MinLenFailPolicy::NEGATIVE;
 
         let horizontal_3 = Strut::new((0.0.into(), 0.0.into()), (20.0.into(), 0.0.into()));
 
-        let mut v_elem_0 = Debug::default();
-        v_elem_0.sizing.min_h = (HEIGHT / 4.).into();
-        v_elem_0.sizing.max_h = (HEIGHT / 3.).into();
-        v_elem_0.sizing.preferred_h = 0.5.into();
+        let mut v_elem_0 = Texture::new(image_path.clone());
+        v_elem_0.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
+        v_elem_0.request_aspect_ratio = false;
+        v_elem_0.min_h_policy = MinLenPolicy::Literal((HEIGHT / 4.).into());
+        v_elem_0.min_w_policy = MinLenPolicy::Literal(MinLen::LAX);
+        v_elem_0.max_h_policy = MaxLenPolicy::Literal((HEIGHT / 3.).into());
+        v_elem_0.max_w_policy = MaxLenPolicy::Literal(MaxLen::LAX);
+        v_elem_0.pref_h = 0.5.into();
 
-        let mut v_elem_1 = Debug::default();
-        v_elem_1.sizing.min_h = (HEIGHT / 4.).into();
-        v_elem_1.sizing.max_h = (HEIGHT / 2.).into();
-        v_elem_1.sizing.preferred_h = 0.5.into();
+        let mut v_elem_1 = Texture::new(image_path.clone());
+        v_elem_1.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
+        v_elem_1.request_aspect_ratio = false;
+        v_elem_1.min_h_policy = MinLenPolicy::Literal((HEIGHT / 4.).into());
+        v_elem_1.min_w_policy = MinLenPolicy::Literal(MinLen::LAX);
+        v_elem_1.max_h_policy = MaxLenPolicy::Literal((HEIGHT / 2.).into());
+        v_elem_1.max_w_policy = MaxLenPolicy::Literal(MaxLen::LAX);
+        v_elem_1.pref_h = 0.5.into();
 
-        let mut v_elem_2 = Debug::default();
-        v_elem_2.sizing.min_h = (HEIGHT / 4.).into();
-        v_elem_2.sizing.max_h = (HEIGHT / 3.).into();
-        v_elem_2.sizing.preferred_h = 0.5.into();
+        let mut v_elem_2 = Texture::new(image_path.clone());
+        v_elem_2.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
+        v_elem_2.request_aspect_ratio = false;
+        v_elem_2.min_h_policy = MinLenPolicy::Literal((HEIGHT / 4.).into());
+        v_elem_2.min_w_policy = MinLenPolicy::Literal(MinLen::LAX);
+        v_elem_2.max_h_policy = MaxLenPolicy::Literal((HEIGHT / 3.).into());
+        v_elem_2.max_w_policy = MaxLenPolicy::Literal(MaxLen::LAX);
+        v_elem_2.pref_h = 0.5.into();
 
         let mut horizontal_4 = VerticalLayout::<'font_data, '_, T> {
             max_h_policy: MajorAxisMaxLenPolicy::Spread,
@@ -79,20 +112,32 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         horizontal_4.elems.push(Box::new(v_elem_1));
         horizontal_4.elems.push(Box::new(v_elem_2));
 
-        let mut v_elem_0 = Debug::default();
-        v_elem_0.sizing.min_h = (HEIGHT / 4.).into();
-        v_elem_0.sizing.max_h = (HEIGHT / 3.).into();
-        v_elem_0.sizing.preferred_h = 0.5.into();
+        let mut v_elem_0 = Texture::new(image_path.clone());
+        v_elem_0.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
+        v_elem_0.request_aspect_ratio = false;
+        v_elem_0.min_h_policy = MinLenPolicy::Literal((HEIGHT / 4.).into());
+        v_elem_0.min_w_policy = MinLenPolicy::Literal(MinLen::LAX);
+        v_elem_0.max_h_policy = MaxLenPolicy::Literal((HEIGHT / 3.).into());
+        v_elem_0.max_w_policy = MaxLenPolicy::Literal(MaxLen::LAX);
+        v_elem_0.pref_h = 0.5.into();
 
-        let mut v_elem_1 = Debug::default();
-        v_elem_1.sizing.min_h = (HEIGHT / 4.).into();
-        v_elem_1.sizing.max_h = (HEIGHT / 2.).into();
-        v_elem_1.sizing.preferred_h = 0.5.into();
+        let mut v_elem_1 = Texture::new(image_path.clone());
+        v_elem_1.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
+        v_elem_1.request_aspect_ratio = false;
+        v_elem_1.min_h_policy = MinLenPolicy::Literal((HEIGHT / 4.).into());
+        v_elem_1.min_w_policy = MinLenPolicy::Literal(MinLen::LAX);
+        v_elem_1.max_h_policy = MaxLenPolicy::Literal((HEIGHT / 2.).into());
+        v_elem_1.max_w_policy = MaxLenPolicy::Literal(MaxLen::LAX);
+        v_elem_1.pref_h = 0.5.into();
 
-        let mut v_elem_2 = Debug::default();
-        v_elem_2.sizing.min_h = (HEIGHT / 4.).into();
-        v_elem_2.sizing.max_h = (HEIGHT / 3.).into();
-        v_elem_2.sizing.preferred_h = 0.5.into();
+        let mut v_elem_2 = Texture::new(image_path.clone());
+        v_elem_2.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
+        v_elem_2.request_aspect_ratio = false;
+        v_elem_2.min_h_policy = MinLenPolicy::Literal((HEIGHT / 4.).into());
+        v_elem_2.min_w_policy = MinLenPolicy::Literal(MinLen::LAX);
+        v_elem_2.max_h_policy = MaxLenPolicy::Literal((HEIGHT / 3.).into());
+        v_elem_2.max_w_policy = MaxLenPolicy::Literal(MaxLen::LAX);
+        v_elem_2.pref_h = 0.5.into();
         let mut horizontal_5 = VerticalLayout::<'font_data, '_, T> {
             max_h_fail_policy: MaxLenFailPolicy::NEGATIVE,
             ..Default::default()

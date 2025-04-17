@@ -17,7 +17,7 @@ pub struct CustomSizing {
     pub preferred_w: PreferredPortion,
     pub preferred_h: PreferredPortion,
     pub preferred_aspect_ratio: Option<f32>,
-    pub preferred_link_allowed_exceed_portion: bool,
+    pub preferred_ratio_exceed_parent: bool,
 
     pub min_w_fail_policy: MinLenFailPolicy,
     pub max_w_fail_policy: MaxLenFailPolicy,
@@ -168,13 +168,13 @@ impl NestedContentSizing {
         }
     }
 
-    pub fn preferred_link_allowed_exceed_portion<'font_data, T: crate::core::System<'font_data>>(
+    pub fn preferred_ratio_exceed_parent<'font_data, T: crate::core::System<'font_data>>(
         &self,
         contained: &dyn Widget<'font_data, T>,
     ) -> bool {
         match self {
             NestedContentSizing::Inherit => contained.preferred_ratio_exceed_parent(),
-            NestedContentSizing::Custom(s) => s.preferred_link_allowed_exceed_portion,
+            NestedContentSizing::Custom(s) => s.preferred_ratio_exceed_parent,
         }
     }
 

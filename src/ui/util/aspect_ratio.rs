@@ -4,6 +4,7 @@ use super::rect::FRect;
 
 /// how should an image's aspect ratio be treated if the available space does
 /// not have the same ratio
+#[derive(Clone, Copy)]
 pub enum AspectRatioFailPolicy {
     /// simply stretch the image to fit the available space, ignoring the aspect
     /// ratio

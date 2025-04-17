@@ -94,7 +94,7 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> Widget<'fo
 {
     fn preferred_ratio_exceed_parent(&self) -> bool {
         self.sizing
-            .preferred_link_allowed_exceed_portion(self.inherit_sizing_widget())
+            .preferred_ratio_exceed_parent(self.inherit_sizing_widget())
         // self.preferred_link_allowed_exceed_portion
     }
 

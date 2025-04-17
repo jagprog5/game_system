@@ -10,6 +10,7 @@ use crate::{
 
 use super::Widget;
 
+#[derive(Clone)]
 pub struct CheckBox<'state> {
     pub texture_path: PathBuf,
     /// square

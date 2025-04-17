@@ -3,11 +3,11 @@ use std::{path::Path, time::Duration};
 use game_system::{
     core::color::Color,
     ui::{
-        layout::horizontal_layout::HorizontalLayout,
         util::{
             aspect_ratio::AspectRatioFailPolicy,
             length::{MaxLen, MaxLenPolicy, MinLen, MinLenPolicy},
         },
+        widget::horizontal_layout::HorizontalLayout,
         widget::{gui_loop, texture::Texture, update_gui, HandlerReturnValue, Widget},
     },
 };
@@ -62,7 +62,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     texture2.min_h_policy = MinLenPolicy::Literal(MinLen::LAX);
     texture2.max_h_policy = MaxLenPolicy::Literal(MaxLen::LAX);
 
-    texture3.preferred_link_allowed_exceed_portion = true;
+    texture3.preferred_ratio_exceed_parent = true;
     texture3.min_w_policy = MinLenPolicy::Literal(MinLen::LAX);
     texture3.max_w_policy = MaxLenPolicy::Literal(MaxLen::LAX);
     texture3.min_h_policy = MinLenPolicy::Literal(MinLen::LAX);
