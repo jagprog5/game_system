@@ -32,7 +32,7 @@ pub enum ScrollAspectRatioDirectionPolicy {
 }
 
 pub static SCROLLER_DRAG_DEAD_ZONE_DEFAULT: u32 = 10;
-pub static SCROLLER_SCROLL_WHEEL_SENSITIVITY_DEFAULT: i32 = 10;
+pub static SCROLLER_SCROLL_WHEEL_SENSITIVITY_DEFAULT: i32 = 20;
 
 /// translates its content - facilitates scrolling. also applies clipping rect
 /// to contained content
@@ -52,19 +52,24 @@ pub struct Scroller<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_
     pub scroll_wheel_sensitivity: i32,
     pub scroll_x_enabled: bool,
     pub scroll_y_enabled: bool,
-    /// for drag scrolling
+
+    /// state which should persist between frames
     pub drag_state: &'scroll_state Cell<DragState>,
+    /// state which should persist between frames
     pub scroll_x: &'scroll_state Cell<i32>,
+    /// state which should persist between frames
     pub scroll_y: &'scroll_state Cell<i32>,
+
     pub contained: Box<dyn Widget<'font_data, T> + 'b>,
 
     pub sizing: NestedContentSizing,
 
-    /// true restricts the scrolling to keep the contained in frame
-    pub restrict_scroll: bool,
-
-    pub lock_small_content_y: Option<MaxLenFailPolicy>,
     pub lock_small_content_x: Option<MaxLenFailPolicy>,
+    pub lock_small_content_y: Option<MaxLenFailPolicy>,
+    /// an output indicating the scroll amount and the max scroll, respectively
+    pub scroll_x_portion: Option<&'scroll_state Cell<(f32, f32)>>,
+    /// an output indicating the scroll amount and the max scroll, respectively
+    pub scroll_y_portion: Option<&'scroll_state Cell<(f32, f32)>>,
 
     /// calculated during update, stored for draw.
     /// used for clipping rect calculations
@@ -75,7 +80,7 @@ pub struct Scroller<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_
 impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>>
     Scroller<'font_data, 'b, 'scroll_state, T>
 {
-    /// scroll_x, scroll_y, and drag_state are states which should be retained
+    /// scroll_x, scroll_y, and drag_state are states which should be persist
     /// between frames
     pub fn new(
         scroll_x_enabled: bool,
@@ -93,10 +98,11 @@ impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>>
             scroll_y_enabled,
             scroll_x,
             scroll_y,
+            scroll_x_portion: None,
+            scroll_y_portion: None,
             contained: contains,
-            restrict_scroll: true,
-            lock_small_content_y: None,
-            lock_small_content_x: None,
+            lock_small_content_x: Some(MaxLenFailPolicy::NEGATIVE),
+            lock_small_content_y: Some(MaxLenFailPolicy::NEGATIVE),
             sizing: NestedContentSizing::Inherit,
             clipping_rect_for_contained_from_update: ClippingRect::None,
             position_for_contained_from_update: Default::default(),
@@ -113,6 +119,8 @@ fn apply_scroll_restrictions(
     scroll_y: &mut i32,
     lock_small_content_y: Option<MaxLenFailPolicy>,
     lock_small_content_x: Option<MaxLenFailPolicy>,
+    scroll_x_portion: Option<&Cell<(f32, f32)>>,
+    scroll_y_portion: Option<&Cell<(f32, f32)>>,
 ) {
     position_for_contained.x += *scroll_x;
     position_for_contained.y += *scroll_y;
@@ -129,6 +137,7 @@ fn apply_scroll_restrictions(
             *scroll_y = ((event_position_h - position_for_contained_h) as f32
                 * lock_small_content_y.0)
                 .round() as i32;
+            scroll_y_portion.map(|c| c.set((0., 0.)));
         } else {
             let violating_top = position_for_contained.y < event_position.y;
             let violating_bottom = position_for_contained.y + position_for_contained_h
@@ -140,6 +149,10 @@ fn apply_scroll_restrictions(
                 *scroll_y -= ((position_for_contained.y + position_for_contained_h)
                     - (event_position.y + event_position_h)) as i32;
             }
+            let top_offset = (position_for_contained.y - event_position.y) as f32;
+            let available_space = (event_position_h - position_for_contained_h) as f32;
+            scroll_y_portion
+                .map(|c| c.set((top_offset.clamp(0., available_space), available_space)));
         }
     } else {
         let down_from_top = position_for_contained.y > event_position.y;
@@ -153,6 +166,9 @@ fn apply_scroll_restrictions(
             *scroll_y -= ((position_for_contained.y + position_for_contained_h)
                 - (event_position.y + event_position_h)) as i32;
         }
+        let visible_top = (event_position.y - position_for_contained.y) as f32;
+        let hidden_range = (position_for_contained_h - event_position_h) as f32;
+        scroll_y_portion.map(|c| c.set((visible_top.clamp(0., hidden_range), hidden_range)));
     }
 
     if position_for_contained_w < event_position_w {
@@ -161,6 +177,7 @@ fn apply_scroll_restrictions(
             *scroll_x = ((event_position_w - position_for_contained_w) as f32
                 * lock_small_content_x.0)
                 .round() as i32;
+            scroll_x_portion.map(|c| c.set((0., 0.)));
         } else {
             let violating_left = position_for_contained.x < event_position.x;
             let violating_right = position_for_contained.x + position_for_contained_w
@@ -172,6 +189,10 @@ fn apply_scroll_restrictions(
                 *scroll_x -= ((position_for_contained.x + position_for_contained_w)
                     - (event_position.x + event_position_w)) as i32;
             }
+            let left_offset = (position_for_contained.x - event_position.x) as f32;
+            let available_space = (event_position_w - position_for_contained_w) as f32;
+            scroll_x_portion
+                .map(|c| c.set((left_offset.clamp(0., available_space), available_space)));
         }
     } else {
         let left_from_right = position_for_contained.x > event_position.x;
@@ -185,6 +206,9 @@ fn apply_scroll_restrictions(
             *scroll_x -= ((position_for_contained.x + position_for_contained_w)
                 - (event_position.x + event_position_w)) as i32;
         }
+        let visible_left = (event_position.x - position_for_contained.x) as f32;
+        let hidden_range = (position_for_contained_w - event_position_w) as f32;
+        scroll_x_portion.map(|c| c.set((visible_left.clamp(0., hidden_range), hidden_range)));
     }
 }
 
@@ -291,6 +315,12 @@ impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>> Widget<'
                 }
                 crate::core::event::Event::Mouse(m) => {
                     if !m.down {
+                        // edge case on below - if currently dragging then
+                        // events are consumed. but on the falling edge this
+                        // should still happen (when about to not be dragging)
+                        if let DragState::Dragging(_) = self.drag_state.get() {
+                            e.set_consumed();
+                        }
                         self.drag_state.set(DragState::None);
                         continue;
                     }
@@ -351,24 +381,25 @@ impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>> Widget<'
         let position_for_contained = match position_for_contained {
             Some(v) => v,
             None => {
+                self.clipping_rect_for_contained_from_update = ClippingRect::Zero;
                 return self.contained.update(event, sys_interface); // same as above
             }
         };
 
-        if self.restrict_scroll {
-            let mut scroll_x_arg = self.scroll_x.get();
-            let mut scroll_y_arg = self.scroll_y.get();
-            apply_scroll_restrictions(
-                position_for_contained,
-                pos,
-                &mut scroll_x_arg,
-                &mut scroll_y_arg,
-                self.lock_small_content_y,
-                self.lock_small_content_x,
-            );
-            self.scroll_x.set(scroll_x_arg);
-            self.scroll_y.set(scroll_y_arg);
-        }
+        let mut scroll_x_arg = self.scroll_x.get();
+        let mut scroll_y_arg = self.scroll_y.get();
+        apply_scroll_restrictions(
+            position_for_contained,
+            pos,
+            &mut scroll_x_arg,
+            &mut scroll_y_arg,
+            self.lock_small_content_y,
+            self.lock_small_content_x,
+            self.scroll_x_portion,
+            self.scroll_y_portion,
+        );
+        self.scroll_x.set(scroll_x_arg);
+        self.scroll_y.set(scroll_y_arg);
 
         self.clipping_rect_for_contained_from_update =
             event.clipping_rect.intersect_area(Some(pos));

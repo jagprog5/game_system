@@ -2,15 +2,27 @@ use std::cell::Cell;
 
 use crate::{
     core::texture_rect::TextureRect,
-    ui::util::length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
+    ui::util::{
+        length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
+        rust::CellRefOrCell,
+    },
 };
 
 use super::{sizing::NestedContentSizing, Widget, WidgetUpdateEvent};
 
+#[derive(Default, Clone, Copy)]
 enum ButtonState {
+    #[default]
     Idle,
     Hovered,
     Pressed,
+}
+
+/// an internal state for a button. generally this should persist between frames
+/// but it's not necessary for most button content
+#[derive(Default, Clone, Copy)]
+pub struct ButtonPrivateState {
+    s: ButtonState,
 }
 
 /// if NestedContentSizing::Inherit, which contained widget should be used for
@@ -38,8 +50,11 @@ pub struct Button<'font_data, 'b, 'state, T: crate::core::System<'font_data> + '
     /// a button which can be used to press the button
     pub hotkey: Option<u8>,
 
-    /// state stored for draw from update
-    state: ButtonState,
+    /// state stored for draw from update. under some circumstances this needs
+    /// to persist between frames. for example, if the contained button content
+    /// has an animation. but otherwise, the state is set appropriately when
+    /// events are received each frame and so persisting it isn't necessary
+    pub state: CellRefOrCell<'state, ButtonPrivateState>,
 }
 
 impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b>
@@ -57,14 +72,14 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b>
             pressed,
             released,
             hotkey: None,
-            state: ButtonState::Idle,
+            state: CellRefOrCell::Cell(Cell::new(Default::default())),
             sizing: Default::default(),
             sizing_inherit_choice: Default::default(),
         }
     }
 
     fn current_widget(&self) -> &dyn Widget<'font_data, T> {
-        match self.state {
+        match self.state.get().s {
             ButtonState::Idle => self.idle.as_ref(),
             ButtonState::Hovered => self.hovered.as_ref(),
             ButtonState::Pressed => self.pressed.as_ref(),
@@ -72,7 +87,7 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b>
     }
 
     fn current_widget_mut(&mut self) -> &mut dyn Widget<'font_data, T> {
-        match self.state {
+        match self.state.get().s {
             ButtonState::Idle => self.idle.as_mut(),
             ButtonState::Hovered => self.hovered.as_mut(),
             ButtonState::Pressed => self.pressed.as_mut(),
@@ -161,11 +176,15 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> Widget<'fo
                         if key_event.key == hotkey {
                             e.set_consumed();
                             if key_event.down {
-                                self.state = ButtonState::Pressed;
+                                self.state.set(ButtonPrivateState {
+                                    s: ButtonState::Pressed,
+                                });
                             } else {
                                 // rising edge
                                 self.released.set(true);
-                                self.state = ButtonState::Idle;
+                                self.state.set(ButtonPrivateState {
+                                    s: ButtonState::Idle,
+                                });
                             }
                         }
                     }
@@ -182,12 +201,18 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> Widget<'fo
                                 // rising edge
                                 self.released.set(true);
                             }
-                            self.state = ButtonState::Hovered;
+                            self.state.set(ButtonPrivateState {
+                                s: ButtonState::Hovered,
+                            });
                         } else {
-                            self.state = ButtonState::Pressed;
+                            self.state.set(ButtonPrivateState {
+                                s: ButtonState::Pressed,
+                            });
                         }
                     } else {
-                        self.state = ButtonState::Idle;
+                        self.state.set(ButtonPrivateState {
+                            s: ButtonState::Idle,
+                        });
                     }
                 }
                 _ => {}
@@ -195,8 +220,7 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> Widget<'fo
         }
 
         let sizing = self.sizing;
-        sizing.update_contained(self.current_widget_mut(), &mut event, sys_interface)?;
-        Ok(false)
+        sizing.update_contained(self.current_widget_mut(), &mut event, sys_interface)
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {

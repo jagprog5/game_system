@@ -116,7 +116,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Widget<'font_data,
         Ok(self
             .sizing
             .update_contained(self.contained.as_mut(), &mut event, sys_interface)?
-            || self
+            | self
                 .sizing
                 .update_contained(self.background.as_mut(), &mut event, sys_interface)?)
     }
