@@ -75,7 +75,7 @@ impl Texture {
     }
 }
 
-impl<'a, T: crate::core::System<'a>> Widget<'a, T> for Texture {
+impl<T: crate::core::System> Widget<T> for Texture {
     fn preferred_ratio_exceed_parent(&self) -> bool {
         self.preferred_ratio_exceed_parent
     }

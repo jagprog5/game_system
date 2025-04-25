@@ -63,7 +63,7 @@ impl<'state> CheckBox<'state> {
     }
 }
 
-impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for CheckBox<'state> {
+impl<'state, T: crate::core::System> Widget<T> for CheckBox<'state> {
     fn min(&self, _sys_interface: &mut T) -> Result<(MinLen, MinLen), String> {
         Ok((self.min, self.min))
     }

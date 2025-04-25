@@ -29,8 +29,8 @@ pub(crate) fn direction_conditional_iter_mut<'a, T>(
     }
 }
 
-pub struct VerticalLayout<'font_data, 'b, T: crate::core::System<'font_data> + 'b> {
-    pub elems: Vec<Box<dyn Widget<'font_data, T> + 'b>>,
+pub struct VerticalLayout<'b, T: crate::core::System + 'b> {
+    pub elems: Vec<Box<dyn Widget<T> + 'b>>,
     /// reverse the order IN TIME that elements are updated and drawn in. this
     /// does not affect the placement of elements in space
     ///
@@ -49,7 +49,7 @@ pub struct VerticalLayout<'font_data, 'b, T: crate::core::System<'font_data> + '
     pub max_h_policy: MajorAxisMaxLenPolicy,
 }
 
-impl<'a, 'b, T: crate::core::System<'a>> Default for VerticalLayout<'a, 'b, T> {
+impl<'b, T: crate::core::System> Default for VerticalLayout<'b, T> {
     fn default() -> Self {
         Self {
             elems: Default::default(),
@@ -68,7 +68,7 @@ impl<'a, 'b, T: crate::core::System<'a>> Default for VerticalLayout<'a, 'b, T> {
     }
 }
 
-impl<'a, 'b, T: crate::core::System<'a>> Widget<'a, T> for VerticalLayout<'a, 'b, T> {
+impl<'b, T: crate::core::System> Widget<T> for VerticalLayout<'b, T> {
     fn preferred_portion(&self) -> (PreferredPortion, PreferredPortion) {
         (self.preferred_w, self.preferred_h)
     }

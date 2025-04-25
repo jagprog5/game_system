@@ -85,7 +85,7 @@ impl<'state> MultiLineLabel<'state> {
     }
 }
 
-impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for MultiLineLabel<'state> {
+impl<'state, T: crate::core::System> Widget<T> for MultiLineLabel<'state> {
     fn preferred_portion(&self) -> (PreferredPortion, PreferredPortion) {
         (self.preferred_w, self.preferred_h)
     }

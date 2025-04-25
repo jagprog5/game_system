@@ -11,8 +11,8 @@ use game_system::{
     },
 };
 
-fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
-    font_file_content: &'font_data [u8],
+fn do_example<T: game_system::core::System>(
+    font_file_content: &'static [u8],
 ) -> Result<(), String> {
     const WIDTH: u32 = 400;
     const HEIGHT: u32 = 400;
@@ -78,7 +78,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
     let scroll_x = Cell::new(0i32);
     let scroll_y = Cell::new(0i32);
 
-    let mut scroller = Scroller::<'font_data, '_, '_, T>::new(
+    let mut scroller = Scroller::<'_, '_, T>::new(
         true,
         true,
         &drag_state,

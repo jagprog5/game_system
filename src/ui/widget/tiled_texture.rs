@@ -46,7 +46,7 @@ impl TiledTexture {
     }
 }
 
-impl<'font_data, T: crate::core::System<'font_data>> Widget<'font_data, T> for TiledTexture {
+impl<T: crate::core::System> Widget<T> for TiledTexture {
     fn update(&mut self, event: WidgetUpdateEvent, _sys_interface: &mut T) -> Result<bool, String> {
         self.background_draw_pos = event.position;
         Ok(false)

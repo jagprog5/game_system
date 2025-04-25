@@ -21,8 +21,8 @@ use game_system::{
     },
 };
 
-fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
-    font_file_content: &'font_data [u8],
+fn do_example<T: game_system::core::System>(
+    font_file_content: &'static [u8],
 ) -> Result<(), String> {
     const WIDTH: f32 = 800.;
     const HEIGHT: f32 = 400.;
@@ -104,7 +104,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         v_elem_2.max_w_policy = MaxLenPolicy::Literal(MaxLen::LAX);
         v_elem_2.pref_h = 0.5.into();
 
-        let mut horizontal_4 = VerticalLayout::<'font_data, '_, T> {
+        let mut horizontal_4 = VerticalLayout::<'_, T> {
             max_h_policy: MajorAxisMaxLenPolicy::Spread,
             ..Default::default()
         };
@@ -138,7 +138,7 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
         v_elem_2.max_h_policy = MaxLenPolicy::Literal((HEIGHT / 3.).into());
         v_elem_2.max_w_policy = MaxLenPolicy::Literal(MaxLen::LAX);
         v_elem_2.pref_h = 0.5.into();
-        let mut horizontal_5 = VerticalLayout::<'font_data, '_, T> {
+        let mut horizontal_5 = VerticalLayout::<'_, T> {
             max_h_fail_policy: MaxLenFailPolicy::NEGATIVE,
             ..Default::default()
         };

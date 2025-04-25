@@ -5,23 +5,20 @@ use super::{sizing::NestedContentSizing, Widget};
 ///
 /// the sizing of this widget is entirely inherited from the contained widget.
 /// the background widget's sizing is ignore, and is generally assumed to be lax in its sizing requirements
-pub struct Background<'font_data, 'b, T: crate::core::System<'font_data> + 'b> {
-    pub contained: Box<dyn Widget<'font_data, T> + 'b>,
+pub struct Background<'b, T: crate::core::System + 'b> {
+    pub contained: Box<dyn Widget<T> + 'b>,
 
     /// default: true. drawn behind contained. false draws in front of as
     /// contained like an overlay
     pub is_background: bool,
 
-    pub background: Box<dyn Widget<'font_data, T> + 'b>,
+    pub background: Box<dyn Widget<T> + 'b>,
 
     pub sizing: NestedContentSizing,
 }
 
-impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Background<'font_data, 'b, T> {
-    pub fn new(
-        contained: Box<dyn Widget<'font_data, T> + 'b>,
-        background: Box<dyn Widget<'font_data, T> + 'b>,
-    ) -> Self {
+impl<'b, T: crate::core::System + 'b> Background<'b, T> {
+    pub fn new(contained: Box<dyn Widget<T> + 'b>, background: Box<dyn Widget<T> + 'b>) -> Self {
         Self {
             contained,
             is_background: true,
@@ -31,9 +28,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Background<'font_d
     }
 }
 
-impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Widget<'font_data, T>
-    for Background<'font_data, 'b, T>
-{
+impl<'b, T: crate::core::System + 'b> Widget<T> for Background<'b, T> {
     fn min(
         &self,
         sys_interface: &mut T,

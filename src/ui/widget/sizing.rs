@@ -67,9 +67,9 @@ pub enum NestedContentSizing {
 impl NestedContentSizing {
     /// get the position that would be used to update the contained if
     /// update_contained were to be called
-    pub fn position_for_contained<'font_data, T: crate::core::System<'font_data>>(
+    pub fn position_for_contained<T: crate::core::System>(
         &self,
-        contained: &dyn Widget<'font_data, T>,
+        contained: &dyn Widget<T>,
         event: &WidgetUpdateEvent,
         sys_interface: &mut T,
     ) -> Result<FRect, String> {
@@ -92,9 +92,9 @@ impl NestedContentSizing {
         }
     }
 
-    pub fn update_contained<'font_data, T: crate::core::System<'font_data>>(
+    pub fn update_contained<T: crate::core::System>(
         &self,
-        contained: &mut dyn Widget<'font_data, T>,
+        contained: &mut dyn Widget<T>,
         event: &mut WidgetUpdateEvent,
         sys_interface: &mut T,
     ) -> Result<bool, String> {
@@ -104,9 +104,9 @@ impl NestedContentSizing {
         contained.update(event_for_contained, sys_interface)
     }
 
-    pub fn min<'font_data, T: crate::core::System<'font_data>>(
+    pub fn min<T: crate::core::System>(
         &self,
-        contained: &dyn Widget<'font_data, T>,
+        contained: &dyn Widget<T>,
         sys_interface: &mut T,
     ) -> Result<(MinLen, MinLen), String> {
         match self {
@@ -115,9 +115,9 @@ impl NestedContentSizing {
         }
     }
 
-    pub fn max<'font_data, T: crate::core::System<'font_data>>(
+    pub fn max<T: crate::core::System>(
         &self,
-        contained: &dyn Widget<'font_data, T>,
+        contained: &dyn Widget<T>,
         sys_interface: &mut T,
     ) -> Result<(MaxLen, MaxLen), String> {
         match self {
@@ -126,9 +126,9 @@ impl NestedContentSizing {
         }
     }
 
-    pub fn preferred_portion<'font_data, T: crate::core::System<'font_data>>(
+    pub fn preferred_portion<T: crate::core::System>(
         &self,
-        contained: &dyn Widget<'font_data, T>,
+        contained: &dyn Widget<T>,
     ) -> (PreferredPortion, PreferredPortion) {
         match self {
             NestedContentSizing::Inherit => contained.preferred_portion(),
@@ -136,9 +136,9 @@ impl NestedContentSizing {
         }
     }
 
-    pub fn preferred_width_from_height<'font_data, T: crate::core::System<'font_data>>(
+    pub fn preferred_width_from_height<T: crate::core::System>(
         &self,
-        contained: &dyn Widget<'font_data, T>,
+        contained: &dyn Widget<T>,
         pref_h: f32,
         sys_interface: &mut T,
     ) -> Option<Result<f32, String>> {
@@ -152,9 +152,9 @@ impl NestedContentSizing {
         }
     }
 
-    pub fn preferred_height_from_width<'font_data, T: crate::core::System<'font_data>>(
+    pub fn preferred_height_from_width<T: crate::core::System>(
         &self,
-        contained: &dyn Widget<'font_data, T>,
+        contained: &dyn Widget<T>,
         pref_w: f32,
         sys_interface: &mut T,
     ) -> Option<Result<f32, String>> {
@@ -168,9 +168,9 @@ impl NestedContentSizing {
         }
     }
 
-    pub fn preferred_ratio_exceed_parent<'font_data, T: crate::core::System<'font_data>>(
+    pub fn preferred_ratio_exceed_parent<T: crate::core::System>(
         &self,
-        contained: &dyn Widget<'font_data, T>,
+        contained: &dyn Widget<T>,
     ) -> bool {
         match self {
             NestedContentSizing::Inherit => contained.preferred_ratio_exceed_parent(),
@@ -178,9 +178,9 @@ impl NestedContentSizing {
         }
     }
 
-    pub fn min_w_fail_policy<'font_data, T: crate::core::System<'font_data>>(
+    pub fn min_w_fail_policy<T: crate::core::System>(
         &self,
-        contained: &dyn Widget<'font_data, T>,
+        contained: &dyn Widget<T>,
     ) -> MinLenFailPolicy {
         match &self {
             NestedContentSizing::Inherit => contained.min_w_fail_policy(),
@@ -188,9 +188,9 @@ impl NestedContentSizing {
         }
     }
 
-    pub fn max_w_fail_policy<'font_data, T: crate::core::System<'font_data>>(
+    pub fn max_w_fail_policy<T: crate::core::System>(
         &self,
-        contained: &dyn Widget<'font_data, T>,
+        contained: &dyn Widget<T>,
     ) -> MaxLenFailPolicy {
         match &self {
             NestedContentSizing::Inherit => contained.max_w_fail_policy(),
@@ -198,9 +198,9 @@ impl NestedContentSizing {
         }
     }
 
-    pub fn min_h_fail_policy<'font_data, T: crate::core::System<'font_data>>(
+    pub fn min_h_fail_policy<T: crate::core::System>(
         &self,
-        contained: &dyn Widget<'font_data, T>,
+        contained: &dyn Widget<T>,
     ) -> MinLenFailPolicy {
         match &self {
             NestedContentSizing::Inherit => contained.min_h_fail_policy(),
@@ -208,9 +208,9 @@ impl NestedContentSizing {
         }
     }
 
-    pub fn max_h_fail_policy<'font_data, T: crate::core::System<'font_data>>(
+    pub fn max_h_fail_policy<T: crate::core::System>(
         &self,
-        contained: &dyn Widget<'font_data, T>,
+        contained: &dyn Widget<T>,
     ) -> MaxLenFailPolicy {
         match &self {
             NestedContentSizing::Inherit => contained.max_h_fail_policy(),

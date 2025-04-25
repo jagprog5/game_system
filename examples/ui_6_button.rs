@@ -20,8 +20,8 @@ use game_system::{
     },
 };
 
-fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
-    font_file_content: &'font_data [u8],
+fn do_example<T: game_system::core::System>(
+    font_file_content: &'static [u8],
 ) -> Result<(), String> {
     const WIDTH: u32 = 400;
     const HEIGHT: u32 = 250;
@@ -39,10 +39,10 @@ fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>
 
     let button_release = Cell::new(false);
 
-    let idle = SingleLineLabel::new::<'font_data, T>("idle".into());
-    let mut hovered = SingleLineLabel::new::<'font_data, T>("hovered".into());
+    let idle = SingleLineLabel::new::<T>("idle".into());
+    let mut hovered = SingleLineLabel::new::<T>("hovered".into());
     hovered.max_h = MaxLen(40.);
-    let pressed = SingleLineLabel::new::<'font_data, T>("pressed".into());
+    let pressed = SingleLineLabel::new::<T>("pressed".into());
 
     let button_sound_path = Path::new(".")
         .join("examples")

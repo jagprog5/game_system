@@ -45,7 +45,7 @@ pub struct SingleLineLabel<'state> {
 }
 
 impl<'state> SingleLineLabel<'state> {
-    pub fn new<'a, T: crate::core::System<'a>>(text: CellRefOrCell<'state, String>) -> Self {
+    pub fn new<T: crate::core::System>(text: CellRefOrCell<'state, String>) -> Self {
         Self {
             text,
             color: Color {
@@ -71,7 +71,7 @@ impl<'state> SingleLineLabel<'state> {
     }
 
     /// 0 on empty text
-    fn ratio<'a, T: crate::core::System<'a>>(&self, sys_interface: &mut T) -> Result<f32, String> {
+    fn ratio<T: crate::core::System>(&self, sys_interface: &mut T) -> Result<f32, String> {
         Ok({
             let text = self.text.scope_take();
             let text: Result<NonEmptyStr, ()> = text.as_str().try_into();
@@ -90,7 +90,7 @@ impl<'state> SingleLineLabel<'state> {
     }
 }
 
-impl<'state, 'a, T: crate::core::System<'a>> Widget<'a, T> for SingleLineLabel<'state> {
+impl<'state, T: crate::core::System> Widget<T> for SingleLineLabel<'state> {
     fn min(&self, sys_interface: &mut T) -> Result<(MinLen, MinLen), String> {
         let min_w = AspectRatioPreferredDirection::width_from_height(
             self.ratio(sys_interface)?,

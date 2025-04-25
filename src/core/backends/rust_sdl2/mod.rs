@@ -78,7 +78,7 @@ impl Drop for TextureWrapper {
     }
 }
 
-pub struct RustSDL2System<'font_data> {
+pub struct RustSDL2System {
     audio_cache: LruCache<PathBuf, Rc<Chunk>>,
 
     /// if a chunk is pushed out of the audio cache (causing the chunk to drop)
@@ -95,7 +95,7 @@ pub struct RustSDL2System<'font_data> {
 
     /// associates a point size with a loaded font. discretized (there can only
     /// be a handful of elements)
-    loaded_fonts: BTreeMap<NonZeroU16, Font<'font_data>>,
+    loaded_fonts: BTreeMap<NonZeroU16, Font>,
 
     event_pump: EventPump,
 
@@ -110,10 +110,10 @@ pub struct RustSDL2System<'font_data> {
     _audio: AudioSubsystem,
     // dropped last
     _sdl: Sdl,
-    font_file_data: &'font_data [u8],
+    font_file_data: &'static [u8],
 }
 
-impl<'font_data> Drop for RustSDL2System<'font_data> {
+impl Drop for RustSDL2System {
     fn drop(&mut self) {
         // just REALLY being sure here. I don't want any surprises later.
         // unhook before members are dropped (including Mixer Quit)
@@ -274,7 +274,7 @@ impl<'sys> crate::core::TextureHandle<'sys> for TextureHandle<'sys> {
     }
 }
 
-impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
+impl System for RustSDL2System {
     type LoopingSoundHandle<'a> = LoopingSoundHandle<'a>;
     type ImageTextureHandle<'system>
         = TextureHandle<'system>
@@ -289,7 +289,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
 
     fn new(
         size: Option<(&str, NonZeroU32, NonZeroU32)>,
-        font_file_data: &'font_data [u8],
+        font_file_data: &'static [u8],
     ) -> Result<Self, String> {
         let sdl = sdl2::init()?;
         let video = sdl.video()?;
@@ -752,7 +752,7 @@ impl<'font_data> System<'font_data> for RustSDL2System<'font_data> {
     }
 }
 
-impl<'font_data> RustSDL2System<'font_data> {
+impl RustSDL2System {
     fn txt_cache_fully_replaced_this_frame(&mut self) -> Result<bool, String> {
         let texture_key = TextureKey::cache_marker_key();
 

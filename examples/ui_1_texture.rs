@@ -15,8 +15,8 @@ use game_system::{
 // NOTE: the zoom in case truncates to the nearest integer. for details, see the
 // note in game_system::ui::widget::background::Background
 
-fn do_example<'font_data, T: game_system::core::System<'font_data> + 'font_data>(
-    font_file_content: &'font_data [u8],
+fn do_example<T: game_system::core::System>(
+    font_file_content: &'static [u8],
 ) -> Result<(), String> {
     const WIDTH: u32 = 256 * 4;
     const HEIGHT: u32 = 256;

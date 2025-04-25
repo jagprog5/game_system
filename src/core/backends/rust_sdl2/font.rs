@@ -11,16 +11,16 @@ use sdl2::{rwops::RWops, surface::Surface, sys::SDL_Color, ttf::Sdl2TtfContext};
 /// contained (referential) struct
 ///
 /// this is roughly equivalent to the "unsafe_textures" features of rust-sdl2
-pub(crate) struct Font<'rwops> {
+pub(crate) struct Font {
     raw: *mut sdl2::sys::ttf::TTF_Font,
     #[allow(dead_code)]
-    rwops: RWops<'rwops>,
+    rwops: RWops<'static>,
 }
 
-impl<'rwops> Font<'rwops> {
+impl Font {
     pub fn new(
         _ttf_context: &Sdl2TtfContext,
-        rwops: RWops<'rwops>,
+        rwops: RWops<'static>,
         point_size: u16,
     ) -> Result<Self, String> {
         unsafe {
@@ -68,7 +68,7 @@ impl<'rwops> Font<'rwops> {
     }
 }
 
-impl<'r> Drop for Font<'r> {
+impl Drop for Font {
     fn drop(&mut self) {
         unsafe {
             // safety: all fonts are dropped before the ttf context closes

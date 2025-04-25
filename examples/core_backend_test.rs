@@ -8,9 +8,7 @@ use game_system::core::event::Event;
 use game_system::core::texture_rect::{TextureDestination, TextureRect};
 use game_system::core::{LoopingSoundHandle, TextureHandle};
 
-fn do_test<'a, T: game_system::core::System<'a>>(
-    font_file_content: &'a [u8],
-) -> Result<(), String> {
+fn do_test<T: game_system::core::System>(font_file_content: &'static [u8]) -> Result<(), String> {
     let mut system = T::new(None, font_file_content)?;
     system.present()?;
     std::thread::sleep(Duration::from_millis(500));

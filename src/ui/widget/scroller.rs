@@ -45,7 +45,7 @@ pub static SCROLLER_SCROLL_WHEEL_SENSITIVITY_DEFAULT: i32 = 20;
 /// it is the responsibility of the contained widget to filter out mouse events
 /// which are not within the sdl clipping rectangle (which is set for both draw,
 /// as well as update, for convenience)
-pub struct Scroller<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>> {
+pub struct Scroller<'b, 'scroll_state, T: crate::core::System> {
     /// manhattan distance that the mouse must travel before it's considered a
     /// click and drag scroll
     pub drag_deadzone: u32,
@@ -60,7 +60,7 @@ pub struct Scroller<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_
     /// state which should persist between frames
     pub scroll_y: &'scroll_state Cell<i32>,
 
-    pub contained: Box<dyn Widget<'font_data, T> + 'b>,
+    pub contained: Box<dyn Widget<T> + 'b>,
 
     pub sizing: NestedContentSizing,
 
@@ -77,9 +77,7 @@ pub struct Scroller<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_
     position_for_contained_from_update: FRect,
 }
 
-impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>>
-    Scroller<'font_data, 'b, 'scroll_state, T>
-{
+impl<'b, 'scroll_state, T: crate::core::System> Scroller<'b, 'scroll_state, T> {
     /// scroll_x, scroll_y, and drag_state are states which should be persist
     /// between frames
     pub fn new(
@@ -88,7 +86,7 @@ impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>>
         drag_state: &'scroll_state Cell<DragState>,
         scroll_x: &'scroll_state Cell<i32>,
         scroll_y: &'scroll_state Cell<i32>,
-        contains: Box<dyn Widget<'font_data, T> + 'b>,
+        contains: Box<dyn Widget<T> + 'b>,
     ) -> Self {
         Self {
             drag_state,
@@ -212,9 +210,7 @@ fn apply_scroll_restrictions(
     }
 }
 
-impl<'font_data, 'b, 'scroll_state, T: crate::core::System<'font_data>> Widget<'font_data, T>
-    for Scroller<'font_data, 'b, 'scroll_state, T>
-{
+impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scroll_state, T> {
     fn min(&self, sys_interface: &mut T) -> Result<(MinLen, MinLen), String> {
         self.sizing.min(self.contained.as_ref(), sys_interface)
     }

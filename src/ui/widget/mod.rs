@@ -107,7 +107,7 @@ impl<'sdl> WidgetUpdateEvent<'sdl> {
     }
 }
 
-pub trait Widget<'font_data, T: crate::core::System<'font_data>> {
+pub trait Widget<T: crate::core::System> {
     /// the widget will never have a width or height smaller than this width or
     /// height, respectively.
     fn min(&self, _sys_interface: &mut T) -> Result<(MinLen, MinLen), String> {
@@ -192,8 +192,8 @@ pub trait Widget<'font_data, T: crate::core::System<'font_data>> {
 ///
 /// dt is the duration since the previous frame, or maybe zero if it's the first
 /// frame
-pub fn update_gui<'font_data, 'b, T: crate::core::System<'font_data> + 'b>(
-    widget: &'b mut dyn Widget<'font_data, T>,
+pub fn update_gui<'b, T: crate::core::System + 'b>(
+    widget: &'b mut dyn Widget<T>,
     events: &'b mut [UIEvent],
     system: &mut T,
     dt: Duration,
@@ -237,8 +237,8 @@ pub fn update_gui<'font_data, 'b, T: crate::core::System<'font_data> + 'b>(
 
 /// given a widget's min, max lengths and fail policies, what's the widget's
 /// lengths and offset within the parent.
-pub fn place<'a, T: crate::core::System<'a>>(
-    widget: &dyn Widget<'a, T>,
+pub fn place<T: crate::core::System>(
+    widget: &dyn Widget<T>,
     parent: FRect,
     ratio_direction: AspectRatioPreferredDirection,
     system: &mut T,
@@ -306,7 +306,7 @@ pub enum HandlerReturnValue {
 
 /// a helper for the examples. but could do done in a variety of ways
 #[allow(dead_code)]
-pub fn gui_loop<'a, T: System<'a>, F>(
+pub fn gui_loop<T: System, F>(
     max_delay: Duration,
     system_interface: &mut T,
     mut handler: F,

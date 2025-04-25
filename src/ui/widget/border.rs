@@ -20,8 +20,8 @@ use super::{Widget, WidgetUpdateEvent};
 ///
 ///  - a side length which is repeated until the length is complete
 ///  - a corner image
-pub struct Border<'font_data, 'b, T: crate::core::System<'font_data> + 'b> {
-    pub contained: Box<dyn Widget<'font_data, T> + 'b>,
+pub struct Border<'b, T: crate::core::System + 'b> {
+    pub contained: Box<dyn Widget<T> + 'b>,
 
     pub top: bool,
     pub left: bool,
@@ -55,9 +55,9 @@ pub struct Border<'font_data, 'b, T: crate::core::System<'font_data> + 'b> {
     border_draw_pos: FRect,
 }
 
-impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Border<'font_data, 'b, T> {
+impl<'b, T: crate::core::System + 'b> Border<'b, T> {
     pub fn new(
-        contained: Box<dyn Widget<'font_data, T> + 'b>,
+        contained: Box<dyn Widget<T> + 'b>,
         texture_path: PathBuf,
         length_texture_src: TextureRect,
         corner_texture_src: TextureRect,
@@ -112,9 +112,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Border<'font_data,
     }
 }
 
-impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
-    for Border<'font_data, 'b, T>
-{
+impl<'b, T: crate::core::System> Widget<T> for Border<'b, T> {
     fn preferred_portion(&self) -> (PreferredPortion, PreferredPortion) {
         self.contained.preferred_portion()
     }

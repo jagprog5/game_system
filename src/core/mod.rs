@@ -40,7 +40,7 @@ pub trait TextureHandle<'system>: Sized {
     fn size(&self) -> Result<(NonZeroU32, NonZeroU32), String>;
 }
 
-pub trait System<'font_data>: Sized {
+pub trait System: Sized {
     type LoopingSoundHandle<'a>: crate::core::LoopingSoundHandle<'a>;
     type ImageTextureHandle<'system>: crate::core::TextureHandle<'system>
     where
@@ -59,7 +59,7 @@ pub trait System<'font_data>: Sized {
     /// provide font file data. it will be used for text rendering operations
     fn new(
         size: Option<(&str, NonZeroU32, NonZeroU32)>,
-        font_file_data: &'font_data [u8],
+        font_file_data: &'static [u8],
     ) -> Result<Self, String>;
 
     /// see new()

@@ -36,10 +36,10 @@ pub enum ButtonInheritSizing {
     Current,
 }
 
-pub struct Button<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> {
-    pub idle: Box<dyn Widget<'font_data, T> + 'b>,
-    pub hovered: Box<dyn Widget<'font_data, T> + 'b>,
-    pub pressed: Box<dyn Widget<'font_data, T> + 'b>,
+pub struct Button<'b, 'state, T: crate::core::System + 'b> {
+    pub idle: Box<dyn Widget<T> + 'b>,
+    pub hovered: Box<dyn Widget<T> + 'b>,
+    pub pressed: Box<dyn Widget<T> + 'b>,
 
     pub sizing: NestedContentSizing,
     pub sizing_inherit_choice: ButtonInheritSizing,
@@ -57,13 +57,11 @@ pub struct Button<'font_data, 'b, 'state, T: crate::core::System<'font_data> + '
     pub state: CellRefOrCell<'state, ButtonPrivateState>,
 }
 
-impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b>
-    Button<'font_data, 'b, 'state, T>
-{
+impl<'b, 'state, T: crate::core::System + 'b> Button<'b, 'state, T> {
     pub fn new(
-        idle: Box<dyn Widget<'font_data, T> + 'b>,
-        hovered: Box<dyn Widget<'font_data, T> + 'b>,
-        pressed: Box<dyn Widget<'font_data, T> + 'b>,
+        idle: Box<dyn Widget<T> + 'b>,
+        hovered: Box<dyn Widget<T> + 'b>,
+        pressed: Box<dyn Widget<T> + 'b>,
         released: &'state Cell<bool>,
     ) -> Self {
         Button {
@@ -78,7 +76,7 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b>
         }
     }
 
-    fn current_widget(&self) -> &dyn Widget<'font_data, T> {
+    fn current_widget(&self) -> &dyn Widget<T> {
         match self.state.get().s {
             ButtonState::Idle => self.idle.as_ref(),
             ButtonState::Hovered => self.hovered.as_ref(),
@@ -86,7 +84,7 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b>
         }
     }
 
-    fn current_widget_mut(&mut self) -> &mut dyn Widget<'font_data, T> {
+    fn current_widget_mut(&mut self) -> &mut dyn Widget<T> {
         match self.state.get().s {
             ButtonState::Idle => self.idle.as_mut(),
             ButtonState::Hovered => self.hovered.as_mut(),
@@ -94,7 +92,7 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b>
         }
     }
 
-    fn inherit_sizing_widget(&self) -> &dyn Widget<'font_data, T> {
+    fn inherit_sizing_widget(&self) -> &dyn Widget<T> {
         match self.sizing_inherit_choice {
             ButtonInheritSizing::Idle => self.idle.as_ref(),
             ButtonInheritSizing::Hovered => self.hovered.as_ref(),
@@ -104,9 +102,7 @@ impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b>
     }
 }
 
-impl<'font_data, 'b, 'state, T: crate::core::System<'font_data> + 'b> Widget<'font_data, T>
-    for Button<'font_data, 'b, 'state, T>
-{
+impl<'b, 'state, T: crate::core::System + 'b> Widget<T> for Button<'b, 'state, T> {
     fn preferred_ratio_exceed_parent(&self) -> bool {
         self.sizing
             .preferred_ratio_exceed_parent(self.inherit_sizing_widget())
