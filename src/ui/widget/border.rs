@@ -28,10 +28,17 @@ pub struct Border<'font_data, 'b, T: crate::core::System<'font_data> + 'b> {
     pub bottom: bool,
     pub right: bool,
 
-    /// allow the inner content to overlap the same space as the drawn border.
-    /// this can be useful if the border contains transparency  
-    /// default: false
-    pub overlap: bool,
+    /// if None (default), the contained content will be placed so it does not
+    /// overlap with the surrounding border
+    ///
+    /// if Some, the border is treated as being the specified width, which
+    /// allows for overlap. the border is drawn over top of the contained
+    ///
+    /// if Some is chosen then the minimum width of the contained should be
+    /// larger than the effective border width - otherwise borders on opposite
+    /// sides can cross if its area is small (consider containing this border in
+    /// a clipper)
+    pub effective_border_width: Option<u32>,
 
     // scale not supported. for details, see
     // game_system::ui::widget::tiled_texture::TiledTexture
@@ -61,7 +68,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Border<'font_data,
             length_texture_src,
             corner_texture_src,
             border_draw_pos: Default::default(),
-            overlap: false,
+            effective_border_width: None,
             top: true,
             left: true,
             bottom: true,
@@ -69,11 +76,19 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Border<'font_data,
         }
     }
 
+    fn effective_border_width(&self) -> u32 {
+        match self.effective_border_width {
+            Some(v) => v,
+            None => self.length_texture_src.h.get(),
+        }
+    }
+
+    fn border_width(&self) -> u32 {
+        self.length_texture_src.h.get()
+    }
+
     /// used in sizing logic
     fn vertical_border_count(&self) -> u32 {
-        if self.overlap {
-            return 0;
-        }
         let mut ret = 0;
         if self.bottom {
             ret += 1;
@@ -86,9 +101,6 @@ impl<'font_data, 'b, T: crate::core::System<'font_data> + 'b> Border<'font_data,
 
     /// used in sizing logic
     fn horizontal_border_count(&self) -> u32 {
-        if self.overlap {
-            return 0;
-        }
         let mut ret = 0;
         if self.left {
             ret += 1;
@@ -112,11 +124,9 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
         pref_h: f32,
         sys_interface: &mut T,
     ) -> Option<Result<f32, String>> {
-        let vertical_subtract_amount =
-            self.vertical_border_count() * self.length_texture_src.h.get();
+        let vertical_subtract_amount = self.vertical_border_count() * self.effective_border_width();
         let vertical_subtract_amount = vertical_subtract_amount as f32;
-        let horizontal_add_amount =
-            self.horizontal_border_count() * self.length_texture_src.h.get();
+        let horizontal_add_amount = self.horizontal_border_count() * self.effective_border_width();
         let horizontal_add_amount = horizontal_add_amount as f32;
 
         // subtract border width from the pref input before passing to the
@@ -134,9 +144,9 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
         sys_interface: &mut T,
     ) -> Option<Result<f32, String>> {
         let horizontal_subtract_amount =
-            self.horizontal_border_count() * self.length_texture_src.h.get();
+            self.horizontal_border_count() * self.effective_border_width();
         let horizontal_subtract_amount = horizontal_subtract_amount as f32;
-        let vertical_add_amount = self.vertical_border_count() * self.length_texture_src.h.get();
+        let vertical_add_amount = self.vertical_border_count() * self.effective_border_width();
         let vertical_add_amount = vertical_add_amount as f32;
 
         // subtract border width from the pref input before passing to the
@@ -169,9 +179,9 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
     }
 
     fn min(&self, sys_interface: &mut T) -> Result<(MinLen, MinLen), String> {
-        let horizontal_min_add = self.horizontal_border_count() * self.length_texture_src.h.get();
+        let horizontal_min_add = self.horizontal_border_count() * self.effective_border_width();
         let horizontal_min_add = MinLen(horizontal_min_add as f32);
-        let vertical_min_add = self.vertical_border_count() * self.length_texture_src.h.get();
+        let vertical_min_add = self.vertical_border_count() * self.effective_border_width();
         let vertical_min_add = MinLen(vertical_min_add as f32);
         let m = self.contained.min(sys_interface)?;
         Ok((
@@ -181,9 +191,9 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
     }
 
     fn max(&self, sys_interface: &mut T) -> Result<(MaxLen, MaxLen), String> {
-        let horizontal_max_add = self.horizontal_border_count() * self.length_texture_src.h.get();
+        let horizontal_max_add = self.horizontal_border_count() * self.effective_border_width();
         let horizontal_max_add = MaxLen(horizontal_max_add as f32);
-        let vertical_max_add = self.vertical_border_count() * self.length_texture_src.h.get();
+        let vertical_max_add = self.vertical_border_count() * self.effective_border_width();
         let vertical_max_add = MaxLen(vertical_max_add as f32);
         let m = self.contained.max(sys_interface)?;
         Ok((
@@ -198,20 +208,10 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
         sys_interface: &mut T,
     ) -> Result<bool, String> {
         self.border_draw_pos = event.position;
-        let style_width = (self.length_texture_src.h.get()) as f32;
+        let style_width = self.effective_border_width() as f32;
         let position_for_child = crate::ui::util::rect::FRect {
-            x: event.position.x
-                + if self.left && !self.overlap {
-                    style_width
-                } else {
-                    0.
-                },
-            y: event.position.y
-                + if self.top && !self.overlap {
-                    style_width
-                } else {
-                    0.
-                },
+            x: event.position.x + if self.left { style_width } else { 0. },
+            y: event.position.y + if self.top { style_width } else { 0. },
             w: event.position.w - self.horizontal_border_count() as f32 * style_width,
             h: event.position.h - self.vertical_border_count() as f32 * style_width,
         };
@@ -226,7 +226,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
 
         // draw border if non empty position (and snap to grid)
         if let Some(pos) = maybe_pos {
-            let border_width = self.length_texture_src.h.get() as i32;
+            let border_width = self.border_width() as i32;
 
             let l_border_width = border_width as i32 * if self.left { 1 } else { 0 };
             let r_border_width = border_width as i32 * if self.right { 1 } else { 0 };
@@ -236,8 +236,11 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
             let mut txt = sys_interface.texture(&self.texture_path)?;
             if self.top {
                 let mut x_offset = pos.x + l_border_width;
-                let mut top_amount_left =
-                    pos.w.get() - l_border_width as u32 - r_border_width as u32;
+                let mut top_amount_left = pos
+                    .w
+                    .get()
+                    .checked_sub(l_border_width as u32 + r_border_width as u32)
+                    .unwrap_or(0);
                 loop {
                     if top_amount_left > self.length_texture_src.w.get() {
                         txt.copy(
@@ -278,8 +281,11 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
 
             if self.bottom {
                 let mut x_offset = pos.x + l_border_width;
-                let mut bottom_amount_left =
-                    pos.w.get() - l_border_width as u32 - r_border_width as u32;
+                let mut bottom_amount_left = pos
+                    .w
+                    .get()
+                    .checked_sub(l_border_width as u32 + r_border_width as u32)
+                    .unwrap_or(0);
                 loop {
                     if bottom_amount_left > self.length_texture_src.w.get() {
                         txt.copy(
@@ -321,7 +327,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                                         TextureRect {
                                             x: x_offset,
                                             y: pos.y + pos.h.get() as i32
-                                                - self.length_texture_src.h.get() as i32,
+                                                - self.border_width() as i32,
                                             w: bottom_amount_left,
                                             h: self.length_texture_src.h,
                                         },
@@ -349,8 +355,11 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
 
             if self.right {
                 let mut y_offset = pos.y + t_border_width;
-                let mut right_amount_left =
-                    pos.h.get() - t_border_width as u32 - b_border_width as u32;
+                let mut right_amount_left = pos
+                    .h
+                    .get()
+                    .checked_sub(t_border_width as u32 + b_border_width as u32)
+                    .unwrap_or(0);
                 loop {
                     if right_amount_left > self.length_texture_src.w.get() {
                         txt.copy(
@@ -419,15 +428,18 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
 
             if self.left {
                 let mut y_offset = pos.y + t_border_width;
-                let mut left_amount_left =
-                    pos.h.get() - t_border_width as u32 - b_border_width as u32;
+                let mut left_amount_left = pos
+                    .h
+                    .get()
+                    .checked_sub(t_border_width as u32 + b_border_width as u32)
+                    .unwrap_or(0);
                 loop {
                     if left_amount_left > self.length_texture_src.w.get() {
                         txt.copy(
                             self.length_texture_src,
                             TextureDestination(
                                 TextureRect {
-                                    x: pos.x + self.length_texture_src.h.get() as i32,
+                                    x: pos.x + self.border_width() as i32,
                                     y: y_offset,
                                     w: self.length_texture_src.w,
                                     h: self.length_texture_src.h,
@@ -460,7 +472,7 @@ impl<'font_data, 'b, T: crate::core::System<'font_data>> Widget<'font_data, T>
                                     },
                                     TextureDestination(
                                         TextureRect {
-                                            x: pos.x + self.length_texture_src.h.get() as i32,
+                                            x: pos.x + self.border_width() as i32,
                                             y: y_offset,
                                             w: left_amount_left,
                                             h: self.length_texture_src.h,
