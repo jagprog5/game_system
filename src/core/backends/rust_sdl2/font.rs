@@ -6,6 +6,8 @@ use std::{
 
 use sdl2::{rwops::RWops, surface::Surface, sys::SDL_Color, ttf::Sdl2TtfContext};
 
+use crate::core::color::Color;
+
 /// my own font minimal font wrapper, largely copied from rust-sdl2. was having
 /// difficulty with lifetimes, in particular I wanted System to be a self
 /// contained (referential) struct
@@ -37,16 +39,17 @@ impl Font {
     pub fn render(
         &self,
         text: &str,
+        color: Color,
         wrap_width: Option<NonZeroU32>,
     ) -> Result<sdl2::surface::Surface, String> {
         unsafe {
             // enforced only for this backend
             let cstr = CString::new(text).map_err(|_| "render text contained null")?;
             let foreground = SDL_Color {
-                r: 0xFF,
-                g: 0xFF,
-                b: 0xFF,
-                a: 0xFF,
+                r: color.r,
+                g: color.g,
+                b: color.b,
+                a: color.a,
             };
             let out = match wrap_width {
                 Some(wrap_width) => sdl2::sys::ttf::TTF_RenderUTF8_Blended_Wrapped(

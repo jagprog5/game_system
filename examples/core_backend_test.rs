@@ -46,12 +46,6 @@ fn do_test<T: game_system::core::System>(font_file_content: &'static [u8]) -> Re
                     h: 200.try_into().unwrap(),
                 },
                 None,
-                Color {
-                    r: 255,
-                    g: 0,
-                    b: 255,
-                    a: 255,
-                },
             ),
         )?;
 
@@ -77,6 +71,12 @@ fn do_test<T: game_system::core::System>(font_file_content: &'static [u8]) -> Re
             "press escape after sounds"
                 .try_into()
                 .map_err(|()| "zero length string".to_owned())?,
+            Color {
+                r: 0xFF,
+                g: 0x10,
+                b: 0xFF,
+                a: 0xFF,
+            },
             NonZero::new(64).unwrap(),
             None,
         )?;

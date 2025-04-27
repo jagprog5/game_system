@@ -2,8 +2,6 @@ use std::num::NonZeroU32;
 
 pub use typed_floats::{NonNaNFinite, StrictlyPositiveFinite};
 
-use super::color::Color;
-
 /// has a positive area
 ///
 /// in cases where there might be zero area, a Option<TextureRect> is used.
@@ -182,38 +180,20 @@ impl From<TextureRectF> for TextureSourceF {
     }
 }
 
-pub struct TextureDestination(pub TextureRect, pub Option<TextureRotation>, pub Color);
+pub struct TextureDestination(pub TextureRect, pub Option<TextureRotation>);
 
-pub struct TextureDestinationF(pub TextureRectF, pub Option<TextureRotationF>, pub Color);
+pub struct TextureDestinationF(pub TextureRectF, pub Option<TextureRotationF>);
 
 /// ergonomic cast - sets default fields
 impl From<TextureRect> for TextureDestination {
     fn from(area: TextureRect) -> Self {
-        TextureDestination(
-            area,
-            None,
-            Color {
-                r: 0xFF,
-                g: 0xFF,
-                b: 0xFF,
-                a: 0xFF,
-            },
-        )
+        TextureDestination(area, None)
     }
 }
 
 /// ergonomic cast - sets default fields
 impl From<TextureRectF> for TextureDestinationF {
     fn from(area: TextureRectF) -> Self {
-        TextureDestinationF(
-            area,
-            None,
-            Color {
-                r: 0xFF,
-                g: 0xFF,
-                b: 0xFF,
-                a: 0xFF,
-            },
-        )
+        TextureDestinationF(area, None)
     }
 }

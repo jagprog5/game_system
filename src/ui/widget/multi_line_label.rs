@@ -71,11 +71,16 @@ pub struct MultiLineLabel<'state> {
 }
 
 impl<'state> MultiLineLabel<'state> {
-    pub fn new(text: CellRefOrCell<'state, String>, point_size: NonZeroU16, color: Color) -> Self {
+    pub fn new(text: CellRefOrCell<'state, String>, point_size: NonZeroU16) -> Self {
         Self {
             text,
             point_size,
-            color,
+            color: Color {
+                r: 0xFF,
+                g: 0xFF,
+                b: 0xFF,
+                a: 0xFF,
+            },
             preferred_w: Default::default(),
             preferred_h: Default::default(),
             min_h_policy: Default::default(),
@@ -129,7 +134,8 @@ impl<'state, T: crate::core::System> Widget<T> for MultiLineLabel<'state> {
                     Err(()) => return Ok(0.),
                 };
 
-                let texture = sys_interface.text(text, self.point_size, Some(wrap_width))?;
+                let texture =
+                    sys_interface.text(text, self.color, self.point_size, Some(wrap_width))?;
                 let size = texture.size()?;
                 Ok(size.1.get() as f32)
             })()),
@@ -154,7 +160,8 @@ impl<'state, T: crate::core::System> Widget<T> for MultiLineLabel<'state> {
             Err(()) => return Ok(()),
         };
 
-        let mut texture = sys_interface.text(text, self.point_size, Some(position.w))?;
+        let mut texture =
+            sys_interface.text(text, self.color, self.point_size, Some(position.w))?;
         let size = texture.size()?;
 
         if size.1 <= position.h {

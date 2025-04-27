@@ -2,7 +2,6 @@ use std::{num::NonZeroU32, path::PathBuf};
 
 use crate::{
     core::{
-        color::Color,
         texture_rect::{TextureDestination, TextureRect, TextureRotation},
         TextureHandle,
     },
@@ -301,12 +300,6 @@ impl<'b, T: crate::core::System> Widget<T> for Border<'b, T> {
                                     flip_horizontal: false,
                                     flip_vertical: true,
                                 }),
-                                Color {
-                                    r: 0xFF,
-                                    g: 0xFF,
-                                    b: 0xFF,
-                                    a: 0xFF,
-                                },
                             ),
                         )?;
                         x_offset += self.length_texture_src.w.get() as i32;
@@ -335,12 +328,6 @@ impl<'b, T: crate::core::System> Widget<T> for Border<'b, T> {
                                             flip_horizontal: false,
                                             flip_vertical: true,
                                         }),
-                                        Color {
-                                            r: 0xFF,
-                                            g: 0xFF,
-                                            b: 0xFF,
-                                            a: 0xFF,
-                                        },
                                     ),
                                 )?;
                             }
@@ -375,12 +362,6 @@ impl<'b, T: crate::core::System> Widget<T> for Border<'b, T> {
                                     flip_horizontal: false,
                                     flip_vertical: false,
                                 }),
-                                Color {
-                                    r: 0xFF,
-                                    g: 0xFF,
-                                    b: 0xFF,
-                                    a: 0xFF,
-                                },
                             ),
                         )?;
                         y_offset += self.length_texture_src.w.get() as i32;
@@ -408,12 +389,6 @@ impl<'b, T: crate::core::System> Widget<T> for Border<'b, T> {
                                             flip_horizontal: false,
                                             flip_vertical: false,
                                         }),
-                                        Color {
-                                            r: 0xFF,
-                                            g: 0xFF,
-                                            b: 0xFF,
-                                            a: 0xFF,
-                                        },
                                     ),
                                 )?;
                             }
@@ -448,12 +423,6 @@ impl<'b, T: crate::core::System> Widget<T> for Border<'b, T> {
                                     flip_horizontal: false,
                                     flip_vertical: true,
                                 }),
-                                Color {
-                                    r: 0xFF,
-                                    g: 0xFF,
-                                    b: 0xFF,
-                                    a: 0xFF,
-                                },
                             ),
                         )?;
                         y_offset += self.length_texture_src.w.get() as i32;
@@ -481,12 +450,6 @@ impl<'b, T: crate::core::System> Widget<T> for Border<'b, T> {
                                             flip_horizontal: false,
                                             flip_vertical: true,
                                         }),
-                                        Color {
-                                            r: 0xFF,
-                                            g: 0xFF,
-                                            b: 0xFF,
-                                            a: 0xFF,
-                                        },
                                     ),
                                 )?;
                             }
@@ -526,12 +489,6 @@ impl<'b, T: crate::core::System> Widget<T> for Border<'b, T> {
                             flip_horizontal: true,
                             flip_vertical: false,
                         }),
-                        Color {
-                            r: 0xFF,
-                            g: 0xFF,
-                            b: 0xFF,
-                            a: 0xFF,
-                        },
                     ),
                 )?;
             }
@@ -552,12 +509,6 @@ impl<'b, T: crate::core::System> Widget<T> for Border<'b, T> {
                             flip_horizontal: false,
                             flip_vertical: true,
                         }),
-                        Color {
-                            r: 0xFF,
-                            g: 0xFF,
-                            b: 0xFF,
-                            a: 0xFF,
-                        },
                     ),
                 )?;
             }
@@ -578,12 +529,6 @@ impl<'b, T: crate::core::System> Widget<T> for Border<'b, T> {
                             flip_horizontal: true,
                             flip_vertical: true,
                         }),
-                        Color {
-                            r: 0xFF,
-                            g: 0xFF,
-                            b: 0xFF,
-                            a: 0xFF,
-                        },
                     ),
                 )?;
             }

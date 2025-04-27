@@ -17,7 +17,8 @@ This defines traits for a 2D game framework and gives an implementation based on
     - from rendered font
         - pt size
         - wrap width
-    - src + dst + rotation + color mod
+        - color
+    - src + dst + rotation
     - clipping rectangle (aka scissor)
 - audio
     - sounds

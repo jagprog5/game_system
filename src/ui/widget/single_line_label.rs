@@ -80,6 +80,7 @@ impl<'state> SingleLineLabel<'state> {
                 Ok(v) => {
                     let size = crate::core::TextureHandle::size(&sys_interface.text(
                         v,
+                        self.color,
                         RATIO_POINT_SIZE,
                         None,
                     )?)?;
@@ -177,7 +178,7 @@ impl<'state, T: crate::core::System> Widget<T> for SingleLineLabel<'state> {
             unsafe { NonZeroU16::new_unchecked(position.h.get().min(u16::MAX.into()) as u16) };
         let mut texture = match text {
             Err(()) => return Ok(()), // skip empty txt
-            Ok(v) => sys_interface.text(v, point_size_to_use, None)?,
+            Ok(v) => sys_interface.text(v, self.color, point_size_to_use, None)?,
         };
 
         let texture_size = texture.size()?;

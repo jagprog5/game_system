@@ -79,6 +79,16 @@ impl Drop for TextureWrapper {
 }
 
 pub struct RustSDL2System {
+    /// used for both image textures and text textures
+    texture_cache: LruCache<TextureKey, TextureWrapper>,
+
+    /// dropped last  
+    /// members grouped together. consider it the same struct; useful for borrow
+    /// ergonomics
+    s: RustSDL2SystemOtherMembers,
+}
+
+struct RustSDL2SystemOtherMembers {
     audio_cache: LruCache<PathBuf, Rc<Chunk>>,
 
     /// if a chunk is pushed out of the audio cache (causing the chunk to drop)
@@ -90,15 +100,13 @@ pub struct RustSDL2System {
     /// looked up. this worst case is fine
     channel_refs: [Option<Rc<Chunk>>; sdl2::sys::mixer::MIX_CHANNELS as usize],
 
-    /// used for both image textures and text textures
-    texture_cache: LruCache<TextureKey, TextureWrapper>,
-
     /// associates a point size with a loaded font. discretized (there can only
     /// be a handful of elements)
     loaded_fonts: BTreeMap<NonZeroU16, Font>,
 
     event_pump: EventPump,
 
+    /// canvas and creator dropped after all textures (unsafe-textures feature)
     creator: TextureCreator<WindowContext>,
     canvas: Canvas<Window>,
 
@@ -126,7 +134,7 @@ impl Drop for RustSDL2System {
 
 pub struct TextureHandle<'sys> {
     txt: &'sys mut sdl2::render::Texture,
-    canvas: &'sys mut Canvas<Window>,
+    sys: &'sys mut RustSDL2SystemOtherMembers,
 }
 
 impl<'sys> crate::core::TextureHandle<'sys> for TextureHandle<'sys> {
@@ -147,18 +155,8 @@ impl<'sys> crate::core::TextureHandle<'sys> for TextureHandle<'sys> {
             )),
         };
 
-        if dst.2.r != u8::MAX || dst.2.g != u8::MAX || dst.2.b != u8::MAX {
-            // handle non default rgb mod
-            self.txt.set_color_mod(dst.2.r, dst.2.g, dst.2.b);
-        }
-
-        if dst.2.a != u8::MAX {
-            // handle non default alpha mod
-            self.txt.set_alpha_mod(dst.2.a);
-        }
-
         let ret = {
-            let TextureDestination(dst, maybe_rotation, _) = dst;
+            let TextureDestination(dst, maybe_rotation) = dst;
 
             let dst = sdl2::rect::Rect::from_ll(sdl2::sys::SDL_Rect {
                 x: dst.x,
@@ -167,14 +165,14 @@ impl<'sys> crate::core::TextureHandle<'sys> for TextureHandle<'sys> {
                 h: dst.h.get() as i32,
             });
             match maybe_rotation {
-                None => self.canvas.copy(&self.txt, src, dst),
+                None => self.sys.canvas.copy(&self.txt, src, dst),
                 Some(rot) => {
                     let angle: f32 = rot.angle.into();
                     let angle: f64 = angle.into();
                     let point = rot
                         .point
                         .map(|point| sdl2::rect::Point::from((point.0, point.1)));
-                    self.canvas.copy_ex(
+                    self.sys.canvas.copy_ex(
                         &self.txt,
                         src,
                         dst,
@@ -186,15 +184,6 @@ impl<'sys> crate::core::TextureHandle<'sys> for TextureHandle<'sys> {
                 }
             }
         };
-
-        // reset attributes
-        if dst.2.r != u8::MAX || dst.2.g != u8::MAX || dst.2.b != u8::MAX {
-            self.txt.set_color_mod(u8::MAX, u8::MAX, u8::MAX);
-        }
-
-        if dst.2.a != u8::MAX {
-            self.txt.set_alpha_mod(u8::MAX);
-        }
 
         ret
     }
@@ -226,29 +215,19 @@ impl<'sys> crate::core::TextureHandle<'sys> for TextureHandle<'sys> {
             )),
         };
 
-        if dst.2.r != u8::MAX || dst.2.g != u8::MAX || dst.2.b != u8::MAX {
-            // handle non default rgb mod
-            self.txt.set_color_mod(dst.2.r, dst.2.g, dst.2.b);
-        }
-
-        if dst.2.a != u8::MAX {
-            // handle non default alpha mod
-            self.txt.set_alpha_mod(dst.2.a);
-        }
-
         let ret = {
-            let TextureDestinationF(dst, maybe_rotation, _) = dst;
+            let TextureDestinationF(dst, maybe_rotation) = dst;
             let dst =
                 sdl2::rect::FRect::new(dst.x.into(), dst.y.into(), dst.w.into(), dst.h.into());
             match maybe_rotation {
-                None => self.canvas.copy_f(&self.txt, src, dst),
+                None => self.sys.canvas.copy_f(&self.txt, src, dst),
                 Some(rot) => {
                     let angle: f32 = rot.angle.into();
                     let angle: f64 = angle.into();
                     let point = rot
                         .point
                         .map(|point| sdl2::rect::FPoint::from((point.0.into(), point.1.into())));
-                    self.canvas.copy_ex_f(
+                    self.sys.canvas.copy_ex_f(
                         &self.txt,
                         src,
                         dst,
@@ -260,15 +239,6 @@ impl<'sys> crate::core::TextureHandle<'sys> for TextureHandle<'sys> {
                 }
             }
         };
-
-        // reset attributes
-        if dst.2.r != u8::MAX || dst.2.g != u8::MAX || dst.2.b != u8::MAX {
-            self.txt.set_color_mod(u8::MAX, u8::MAX, u8::MAX);
-        }
-
-        if dst.2.a != u8::MAX {
-            self.txt.set_alpha_mod(u8::MAX);
-        }
 
         ret
     }
@@ -325,17 +295,6 @@ impl System for RustSDL2System {
         let creator = canvas.texture_creator();
 
         Ok(RustSDL2System {
-            // audio cache capacity is fixed. from the POV of gameplay, if too
-            // many different types of sounds are playing rapidly then that
-            // would be quite weird. keep in mind too, no sound is played if no
-            // channel is available (and it wouldn't try to load anything in
-            // that case), so there is a limit already
-            audio_cache: LruCache::new(
-                (sdl2::sys::mixer::MIX_CHANNELS as usize * 4)
-                    .try_into()
-                    .unwrap(),
-            ),
-            channel_refs: Default::default(),
             // texture cache has a dynamically increasing capacity with some
             // arbitrary small starting capacity. there could be cases where
             // plenty of textures are drawn to the screen at the same time -
@@ -347,19 +306,32 @@ impl System for RustSDL2System {
             // that frame) then the cache capacity is doubled
             texture_cache: LruCache::new(16.try_into().unwrap()),
 
-            loaded_fonts: Default::default(),
-            event_pump: sdl.event_pump()?,
-            creator,
-            canvas,
-            ttf_context: sdl2::ttf::init().map_err(|e| e.to_string())?,
-            // empty flags - don't load any dynamic libs up front. they will be
-            // loaded as needed the first time the respective file format is loaded
-            _image: sdl2::image::init(sdl2::image::InitFlag::empty())?,
-            _mixer: sdl2::mixer::init(sdl2::mixer::InitFlag::empty())?,
-            _video: video,
-            _audio: audio,
-            _sdl: sdl,
-            font_file_data,
+            s: RustSDL2SystemOtherMembers {
+                // audio cache capacity is fixed. from the POV of gameplay, if too
+                // many different types of sounds are playing rapidly then that
+                // would be quite weird. keep in mind too, no sound is played if no
+                // channel is available (and it wouldn't try to load anything in
+                // that case), so there is a limit already
+                audio_cache: LruCache::new(
+                    (sdl2::sys::mixer::MIX_CHANNELS as usize * 4)
+                        .try_into()
+                        .unwrap(),
+                ),
+                channel_refs: Default::default(),
+                loaded_fonts: Default::default(),
+                event_pump: sdl.event_pump()?,
+                creator,
+                canvas,
+                ttf_context: sdl2::ttf::init().map_err(|e| e.to_string())?,
+                // empty flags - don't load any dynamic libs up front. they will be
+                // loaded as needed the first time the respective file format is loaded
+                _image: sdl2::image::init(sdl2::image::InitFlag::empty())?,
+                _mixer: sdl2::mixer::init(sdl2::mixer::InitFlag::empty())?,
+                _video: video,
+                _audio: audio,
+                _sdl: sdl,
+                font_file_data,
+            },
         })
     }
 
@@ -371,9 +343,9 @@ impl System for RustSDL2System {
         self.texture_cache.clear();
 
         let window = match size {
-            Some(size) => self._video.window(size.0, size.1.get(), size.2.get()),
+            Some(size) => self.s._video.window(size.0, size.1.get(), size.2.get()),
             None => {
-                let mut ret = self._video.window("", 0, 0);
+                let mut ret = self.s._video.window("", 0, 0);
                 ret.fullscreen_desktop();
                 ret
             }
@@ -389,13 +361,13 @@ impl System for RustSDL2System {
         let creator = canvas.texture_creator();
 
         // replacement order is super important here
-        self.creator = creator;
-        self.canvas = canvas;
+        self.s.creator = creator;
+        self.s.canvas = canvas;
         Ok(())
     }
 
     fn size(&self) -> Result<(NonZeroU32, NonZeroU32), String> {
-        let raw = self.canvas.output_size()?;
+        let raw = self.s.canvas.output_size()?;
         let width = NonZeroU32::new(raw.0).ok_or("canvas width zero")?;
         let height = NonZeroU32::new(raw.1).ok_or("canvas height zero")?;
         Ok((width, height))
@@ -407,36 +379,41 @@ impl System for RustSDL2System {
         let txt = self.texture_cache.try_get_or_insert_mut_ref(
             &texture_key,
             || -> Result<TextureWrapper, String> {
-                self.creator.load_texture(image_path).map(|mut txt| {
-                    // Nearest scale mode is the default for sdl2 (but not sdl3!)
-                    txt.set_blend_mode(sdl2::render::BlendMode::Blend);
-                    TextureWrapper(txt)
-                })
+                self.s
+                    .creator
+                    .load_texture(image_path)
+                    .map(|txt| TextureWrapper(txt)) // safety - immediately put in wrapper
+                    .map(|mut txt| {
+                        // Nearest scale mode is the default for sdl2 (but not sdl3!)
+                        txt.0.set_blend_mode(sdl2::render::BlendMode::Blend);
+                        txt
+                    })
             },
         )?;
 
         Ok(TextureHandle {
             txt: &mut txt.0,
-            canvas: &mut self.canvas,
+            sys: &mut self.s,
         })
     }
 
     fn clear(&mut self, c: Color) -> Result<(), String> {
-        self.canvas
+        self.s
+            .canvas
             .set_draw_color(sdl2::pixels::Color::RGBA(c.r, c.g, c.b, c.a));
-        self.canvas.clear();
+        self.s.canvas.clear();
         Ok(())
     }
 
     fn present(&mut self) -> Result<(), String> {
-        self.canvas.present();
+        self.s.canvas.present();
 
         let cache_fully_replaced_this_frame = self.txt_cache_fully_replaced_this_frame()?;
 
         if cache_fully_replaced_this_frame {
             // sane upper bound.
             // it is possible but not likely that this is exceeded
-            debug_assert!(self.texture_cache.cap().get() < 1000);
+            debug_assert!(self.texture_cache.cap().get() < 8000);
             self.texture_cache.resize(
                 (self.texture_cache.cap().get() * 2usize)
                     .try_into()
@@ -450,64 +427,70 @@ impl System for RustSDL2System {
     fn text(
         &mut self,
         text: NonEmptyStr,
+        color: Color,
         point_size: NonZeroU16,
         wrap_width: Option<NonZeroU32>,
     ) -> Result<TextureHandle<'_>, String> {
         // the point size is discretized in some way. that's because there is
         // some overhead associated with actually loading the font file data
         // into the font object (a font object is used per point size) - would
-        // not be good to load every font size
+        // not be good to load every possible font size
 
         // the binning strategy used here is to use the next greater power of 2
-        // point size (going upwards to never lose detail)
+        // point size (going upwards to not lose detail)
         let point_size = capped_next_power_of_two(point_size);
 
         let texture_key = match wrap_width {
-            Some(wrap_width) => {
-                TextureKey::from_rendered_wrapped_text(text.0, point_size.get(), wrap_width.get())
-            }
-            None => TextureKey::from_rendered_text(text.0, point_size.get()),
+            Some(wrap_width) => TextureKey::from_rendered_wrapped_text(
+                text.0,
+                color,
+                point_size.get(),
+                wrap_width.get(),
+            ),
+            None => TextureKey::from_rendered_text(text.0, color, point_size.get()),
         };
 
         let txt = self.texture_cache.try_get_or_insert_mut_ref(
             &texture_key,
             || -> Result<TextureWrapper, String> {
                 // must recreate the texture as it is not in the cache.
-                let font = match self.loaded_fonts.get(&point_size) {
+                let font = match self.s.loaded_fonts.get(&point_size) {
                     Some(v) => v, // point size is available
                     None => {
                         // must create font object for points size
                         let rwops =
-                            RWops::from_bytes(self.font_file_data).map_err(|e| e.to_string())?;
-                        let font = Font::new(&self.ttf_context, rwops, point_size.get())?;
-                        self.loaded_fonts.insert(point_size, font);
+                            RWops::from_bytes(self.s.font_file_data).map_err(|e| e.to_string())?;
+                        let font = Font::new(&self.s.ttf_context, rwops, point_size.get())?;
+                        self.s.loaded_fonts.insert(point_size, font);
                         // sanity check on discretization method
-                        debug_assert!(self.loaded_fonts.len() < 20);
-                        self.loaded_fonts.get(&point_size).unwrap()
+                        debug_assert!(self.s.loaded_fonts.len() < 20);
+                        self.s.loaded_fonts.get(&point_size).unwrap()
                     }
                 };
 
                 // the texture is rendered!
-                let surface = font.render(text.0, wrap_width)?;
+                let surface = font.render(text.0, color, wrap_width)?;
 
                 let mut texture = self
+                    .s
                     .creator
                     .create_texture_from_surface(surface)
+                    .map(|txt| TextureWrapper(txt)) // safety - immediately put in wrapper
                     .map_err(|e| e.to_string())?;
-                texture.set_blend_mode(sdl2::render::BlendMode::Blend);
-                texture.set_scale_mode(sdl2::render::ScaleMode::Linear);
-                Ok(TextureWrapper(texture))
+                texture.0.set_blend_mode(sdl2::render::BlendMode::Blend);
+                texture.0.set_scale_mode(sdl2::render::ScaleMode::Linear);
+                Ok(texture)
             },
         )?;
 
         Ok(TextureHandle {
             txt: &mut txt.0,
-            canvas: &mut self.canvas,
+            sys: &mut self.s,
         })
     }
 
     fn clip(&mut self, c: crate::core::ClippingRect) {
-        self.canvas.set_clip_rect(match c {
+        self.s.canvas.set_clip_rect(match c {
             crate::core::ClippingRect::Some(texture_area) => {
                 sdl2::render::ClippingRect::Some(Rect::new(
                     texture_area.x,
@@ -522,7 +505,7 @@ impl System for RustSDL2System {
     }
 
     fn get_clip(&mut self) -> crate::core::ClippingRect {
-        match self.canvas.clip_rect() {
+        match self.s.canvas.clip_rect() {
             sdl2::render::ClippingRect::Some(rect) => {
                 crate::core::ClippingRect::Some(crate::core::TextureRect {
                     x: rect.x,
@@ -561,12 +544,13 @@ impl System for RustSDL2System {
         };
 
         let chunk = self
+            .s
             .audio_cache
             .try_get_or_insert_ref(sound, || -> Result<Rc<Chunk>, String> {
                 Ok(Rc::new(Chunk::from_file(sound)?))
             })?;
 
-        self.channel_refs[channel.0 as usize] = Some(chunk.clone());
+        self.s.channel_refs[channel.0 as usize] = Some(chunk.clone());
 
         let angle = (direction * 360.0).round() as i16;
         let distance = (distance * 0xFF as f32).round() as u8;
@@ -611,12 +595,13 @@ impl System for RustSDL2System {
 
         if newly_playing {
             let chunk = self
+                .s
                 .audio_cache
                 .try_get_or_insert_ref(handle.path, || -> Result<Rc<Chunk>, String> {
                     Ok(Rc::new(Chunk::from_file(handle.path)?))
                 })?;
 
-            self.channel_refs[channel.0 as usize] = Some(chunk.clone());
+            self.s.channel_refs[channel.0 as usize] = Some(chunk.clone());
             match fade_in_duration {
                 Some(fade_in_duration) => {
                     channel.fade_in(&chunk, -1, fade_in_duration.as_millis() as i32)
@@ -626,10 +611,10 @@ impl System for RustSDL2System {
             handle.channel = Some(channel); // last step
         } else {
             // refresh the entry in the cache even if already playing
-            let _ = self.audio_cache.try_get_or_insert_ref(handle.path, || {
+            let _ = self.s.audio_cache.try_get_or_insert_ref(handle.path, || {
                 // it was pushed out of the cache (unlikely if adjust_sound is
                 // frequent). however, it is still in the channel_refs
-                let maybe_ref = &self.channel_refs[channel.0 as usize];
+                let maybe_ref = &self.s.channel_refs[channel.0 as usize];
                 // unwrap guaranteed ok since channel_refs at index was set to
                 // Some() above when newly_playing. but __just in case__, doing
                 // a try_get here instead. if failed, does not refresh entry
@@ -657,7 +642,7 @@ impl System for RustSDL2System {
             None => return,
         };
 
-        self.channel_refs[channel.0 as usize] = None;
+        self.s.channel_refs[channel.0 as usize] = None;
 
         match fade_out_duration {
             Some(fade_out_duration) => {
@@ -669,7 +654,7 @@ impl System for RustSDL2System {
 
     fn event(&mut self) -> Event {
         loop {
-            let maybe_e = translate_sdl_event(self.event_pump.wait_event());
+            let maybe_e = translate_sdl_event(self.s.event_pump.wait_event());
             if let Some(e) = maybe_e {
                 return e;
             }
@@ -690,7 +675,7 @@ impl System for RustSDL2System {
                 return None; // just in case
             }
 
-            let event_in = self.event_pump.wait_event_timeout(duration_remaining);
+            let event_in = self.s.event_pump.wait_event_timeout(duration_remaining);
             match event_in {
                 Some(e) => {
                     let maybe_e = translate_sdl_event(e);
@@ -772,9 +757,10 @@ impl RustSDL2System {
                     buffer[3] = 0xFF;
                 });
 
-                self.creator
+                self.s
+                    .creator
                     .create_texture_from_surface(surface)
-                    .map(|txt| TextureWrapper(txt))
+                    .map(|txt| TextureWrapper(txt)) // safety - immediately put in wrapper
                     .map_err(|e| e.to_string())
             },
         )?;

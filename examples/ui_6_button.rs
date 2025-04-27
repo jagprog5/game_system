@@ -106,12 +106,6 @@ fn do_example<T: game_system::core::System>(
         "scroll down to read! this\nis\na lot of\nmultiline text\nand a ton of lore as well!"
             .into(),
         20.try_into().unwrap(),
-        Color {
-            r: 0xFF,
-            g: 0xFF,
-            b: 0xFF,
-            a: 0xFF,
-        },
     );
     // the multiline widget's bounds should respect the text (don't cut it off
     // or get around it in some other way) - and if the widget is too big then

@@ -18,10 +18,7 @@ pub mod sizing;
 pub mod horizontal_layout;
 pub mod vertical_layout;
 
-use std::{
-    num::NonZeroU32,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use crate::{
     core::{clipping_rect::ClippingRect, System},
@@ -198,18 +195,7 @@ pub fn update_gui<'b, T: crate::core::System + 'b>(
     system: &mut T,
     dt: Duration,
 ) -> Result<bool, String> {
-    let (w, h) = match system.size() {
-        Ok(v) => v,
-        Err(msg) => {
-            debug_assert!(false, "{}", msg); // infallible in prod
-            unsafe {
-                (
-                    NonZeroU32::new_unchecked(320),
-                    NonZeroU32::new_unchecked(320),
-                )
-            }
-        }
-    };
+    let (w, h) = system.size()?;
 
     let aspect_ratio_direction = AspectRatioPreferredDirection::default();
 

@@ -22,15 +22,14 @@ pub trait LoopingSoundHandle<'a>: Sized {
     fn new(path: &'a Path) -> Self;
 }
 
-/// exposes ability to draw texture onto the screen
 pub trait TextureHandle<'system>: Sized {
-    /// copy texture to screen. applies alpha blending
+    /// copy texture to window. applies alpha blending
     fn copy<Src, Dst>(&mut self, src: Src, dst: Dst) -> Result<(), String>
     where
         Src: Into<TextureSource>,
         Dst: Into<TextureDestination>;
 
-    /// copy texture to screen. applies alpha blending
+    /// copy texture to window. applies alpha blending
     fn copy_f<Src, Dst>(&mut self, src: Src, dst: Dst) -> Result<(), String>
     where
         Src: Into<TextureSourceF>,
@@ -42,9 +41,11 @@ pub trait TextureHandle<'system>: Sized {
 
 pub trait System: Sized {
     type LoopingSoundHandle<'a>: crate::core::LoopingSoundHandle<'a>;
+    /// applies nearest neighbor sampling
     type ImageTextureHandle<'system>: crate::core::TextureHandle<'system>
     where
         Self: 'system;
+    /// applies some unspecified interpolation or smoothing
     type TextTextureHandle<'system>: crate::core::TextureHandle<'system>
     where
         Self: 'system;
@@ -56,7 +57,8 @@ pub trait System: Sized {
     ///
     /// if size is Some(...), creates a resizable window with title and size
     ///
-    /// provide font file data. it will be used for text rendering operations
+    /// provide font file data. it will be used for text rendering operations.
+    /// it can ref an empty array if no text rendering will occur
     fn new(
         size: Option<(&str, NonZeroU32, NonZeroU32)>,
         font_file_data: &'static [u8],
@@ -71,12 +73,12 @@ pub trait System: Sized {
     /// the size of the window canvas, width height
     fn size(&self) -> Result<(NonZeroU32, NonZeroU32), String>;
 
-    /// set the screen to the provided color, clearing all drawing.
+    /// set to the provided color, clearing all drawing
     ///
     /// this ignores the clipping rectangle
     fn clear(&mut self, color: Color) -> Result<(), String>;
 
-    /// make the drawing appear to the screen
+    /// make the content appear on the window
     fn present(&mut self) -> Result<(), String>;
 
     /// makes drawing only appear within a specified region
@@ -84,22 +86,18 @@ pub trait System: Sized {
 
     fn get_clip(&mut self) -> ClippingRect;
 
-    /// load texture from file or reuse from (unspecified) cache. the texture
-    /// instance can then be used to draw to the screen. the texture should
-    /// apply nearest neighbor sampling
+    /// load texture from file or reuse from (unspecified) cache
     fn texture(&mut self, image_path: &Path) -> Result<Self::ImageTextureHandle<'_>, String>;
 
-    /// render text or reuse from (unspecified) cache. the texture instance can
-    /// then be used to draw to the screen
+    /// render text or reuse from (unspecified) cache
     ///
     /// there is no guarantee that the provided point size will be the one that
     /// is used to render the font - the output texture size is unspecified and
     /// should be scaled appropriately.
-    ///
-    /// the texture should apply some unspecified interpolation or smoothing
     fn text(
         &mut self,
         text: NonEmptyStr,
+        color: Color,
         point_size: NonZeroU16,
         wrap_width: Option<NonZeroU32>,
     ) -> Result<Self::TextTextureHandle<'_>, String>;

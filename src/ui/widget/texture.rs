@@ -2,7 +2,6 @@ use std::{ops::Not, path::PathBuf};
 
 use crate::{
     core::{
-        color::Color,
         texture_rect::{TextureDestinationF, TextureRect, TextureRectF, TextureSource},
         TextureHandle,
     },
@@ -22,7 +21,6 @@ use super::{Widget, WidgetUpdateEvent};
 pub struct Texture {
     pub texture_path: PathBuf,
     pub texture_src: TextureSource,
-    pub color_mod: Color,
 
     /// applicable when request_aspect_ratio is false
     pub aspect_ratio_fail_policy: AspectRatioFailPolicy,
@@ -51,12 +49,6 @@ impl Texture {
         Texture {
             texture_path: texture_path.to_path_buf(),
             texture_src: Default::default(),
-            color_mod: Color {
-                r: 0xFF,
-                g: 0xFF,
-                b: 0xFF,
-                a: 0xFF,
-            },
             aspect_ratio_fail_policy: Default::default(),
             request_aspect_ratio: true,
             min_w_fail_policy: Default::default(),
@@ -229,7 +221,7 @@ impl<T: crate::core::System> Widget<T> for Texture {
             let maybe_dst: Option<TextureRect> = dst.into();
             if let Some(dst) = maybe_dst {
                 let dst: TextureRectF = dst.into();
-                let dst = TextureDestinationF(dst, None, self.color_mod);
+                let dst = TextureDestinationF(dst, None);
                 texture.copy_f(src, dst)?;
             }
         }

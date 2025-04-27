@@ -69,16 +69,8 @@ fn do_example<T: game_system::core::System>(
     bottom_right_label.aspect_ratio_fail_policy = AspectRatioFailPolicy::ZoomOut((1., 0.5));
 
     let multiline_string_displayed = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.".to_owned();
-    let mut multiline_widget = MultiLineLabel::new(
-        multiline_string_displayed.into(),
-        20.try_into().unwrap(),
-        Color {
-            r: 0xFF,
-            g: 0xFF,
-            b: 0xFF,
-            a: 0xFF,
-        },
-    );
+    let mut multiline_widget =
+        MultiLineLabel::new(multiline_string_displayed.into(), 20.try_into().unwrap());
     multiline_widget.min_h_policy = MultiLineMinHeightFailPolicy::CutOff(1.0);
     multiline_widget.max_h_policy = MaxLenFailPolicy::NEGATIVE;
 
