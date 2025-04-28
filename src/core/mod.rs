@@ -45,7 +45,7 @@ pub trait System: Sized {
     type ImageTextureHandle<'system>: crate::core::TextureHandle<'system>
     where
         Self: 'system;
-    /// applies some unspecified interpolation or smoothing
+    /// should apply some unspecified interpolation or smoothing
     type TextTextureHandle<'system>: crate::core::TextureHandle<'system>
     where
         Self: 'system;
@@ -69,6 +69,16 @@ pub trait System: Sized {
         &mut self,
         size: Option<(&str, NonZeroU32, NonZeroU32)>,
     ) -> Result<(), String>;
+
+    /// image paths will be relative to this base path
+    fn texture_path_base(&mut self, base: &Path);
+
+    fn get_texture_path_base(&self) -> &Path;
+
+    /// both sound and music paths will be relative to this base path
+    fn audio_path_base(&mut self, base: &Path);
+
+    fn get_audio_path_base(&self) -> &Path;
 
     /// the size of the window canvas, width height
     fn size(&self) -> Result<(NonZeroU32, NonZeroU32), String>;

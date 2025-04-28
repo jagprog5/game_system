@@ -10,6 +10,8 @@ use game_system::core::{LoopingSoundHandle, TextureHandle};
 
 fn do_test<T: game_system::core::System>(font_file_content: &'static [u8]) -> Result<(), String> {
     let mut system = T::new(None, font_file_content)?;
+    system.audio_path_base(&Path::new(".").join("examples").join("assets"));
+    system.texture_path_base(&Path::new(".").join("examples").join("assets"));
     system.present()?;
     std::thread::sleep(Duration::from_millis(500));
     system.recreate_window(Some((
@@ -23,11 +25,7 @@ fn do_test<T: game_system::core::System>(font_file_content: &'static [u8]) -> Re
 
     let window_size = system.size()?;
     {
-        let image_path = Path::new(".")
-            .join("examples")
-            .join("assets")
-            .join("test.jpg");
-        let mut test_texture = system.texture(&image_path)?;
+        let mut test_texture = system.texture(Path::new("test.jpg"))?;
         let test_texture_size = test_texture.size()?;
 
         // top right, copy with no rotation and simple scaling
@@ -102,10 +100,7 @@ fn do_test<T: game_system::core::System>(font_file_content: &'static [u8]) -> Re
 
     system.present()?;
 
-    let noise_sound = Path::new(".")
-        .join("examples")
-        .join("assets")
-        .join("noise.mp3");
+    let noise_sound = Path::new("noise.mp3");
 
     // twice of left ear, quite. and once on right ear, loud
     for _ in 0..3 {

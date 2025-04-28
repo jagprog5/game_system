@@ -110,6 +110,9 @@ struct RustSDL2SystemOtherMembers {
     creator: TextureCreator<WindowContext>,
     canvas: Canvas<Window>,
 
+    texture_path_base: PathBuf,
+    audio_path_base: PathBuf,
+
     // dropped in member order stated
     ttf_context: Sdl2TtfContext,
     _image: Sdl2ImageContext,
@@ -322,6 +325,8 @@ impl System for RustSDL2System {
                 event_pump: sdl.event_pump()?,
                 creator,
                 canvas,
+                texture_path_base: Default::default(),
+                audio_path_base: Default::default(),
                 ttf_context: sdl2::ttf::init().map_err(|e| e.to_string())?,
                 // empty flags - don't load any dynamic libs up front. they will be
                 // loaded as needed the first time the respective file format is loaded
@@ -366,6 +371,22 @@ impl System for RustSDL2System {
         Ok(())
     }
 
+    fn texture_path_base(&mut self, base: &Path) {
+        self.s.texture_path_base = base.to_path_buf();
+    }
+
+    fn get_texture_path_base(&self) -> &Path {
+        &self.s.texture_path_base
+    }
+
+    fn audio_path_base(&mut self, base: &Path) {
+        self.s.audio_path_base = base.to_path_buf();
+    }
+
+    fn get_audio_path_base(&self) -> &Path {
+        &self.s.audio_path_base
+    }
+
     fn size(&self) -> Result<(NonZeroU32, NonZeroU32), String> {
         let raw = self.s.canvas.output_size()?;
         let width = NonZeroU32::new(raw.0).ok_or("canvas width zero")?;
@@ -381,7 +402,7 @@ impl System for RustSDL2System {
             || -> Result<TextureWrapper, String> {
                 self.s
                     .creator
-                    .load_texture(image_path)
+                    .load_texture(self.s.texture_path_base.join(image_path))
                     .map(|txt| TextureWrapper(txt)) // safety - immediately put in wrapper
                     .map(|mut txt| {
                         // Nearest scale mode is the default for sdl2 (but not sdl3!)
@@ -543,12 +564,14 @@ impl System for RustSDL2System {
             None => return Ok(()), // don't do anything but don't give error
         };
 
-        let chunk = self
-            .s
-            .audio_cache
-            .try_get_or_insert_ref(sound, || -> Result<Rc<Chunk>, String> {
-                Ok(Rc::new(Chunk::from_file(sound)?))
-            })?;
+        let chunk =
+            self.s
+                .audio_cache
+                .try_get_or_insert_ref(sound, || -> Result<Rc<Chunk>, String> {
+                    Ok(Rc::new(Chunk::from_file(
+                        self.s.audio_path_base.join(sound),
+                    )?))
+                })?;
 
         self.s.channel_refs[channel.0 as usize] = Some(chunk.clone());
 
@@ -594,12 +617,14 @@ impl System for RustSDL2System {
         channel.set_position(angle, distance)?;
 
         if newly_playing {
-            let chunk = self
-                .s
-                .audio_cache
-                .try_get_or_insert_ref(handle.path, || -> Result<Rc<Chunk>, String> {
-                    Ok(Rc::new(Chunk::from_file(handle.path)?))
-                })?;
+            let chunk = self.s.audio_cache.try_get_or_insert_ref(
+                handle.path,
+                || -> Result<Rc<Chunk>, String> {
+                    Ok(Rc::new(Chunk::from_file(
+                        self.s.audio_path_base.join(handle.path),
+                    )?))
+                },
+            )?;
 
             self.s.channel_refs[channel.0 as usize] = Some(chunk.clone());
             match fade_in_duration {
@@ -707,7 +732,7 @@ impl System for RustSDL2System {
         fade_out_duration: Option<Duration>,
         fade_in_duration: Option<Duration>,
     ) -> Result<(), String> {
-        let music = sdl2::mixer::Music::from_file(music)?;
+        let music = sdl2::mixer::Music::from_file(self.s.audio_path_base.join(music))?;
         let mut ctx = MUSIC_CONTEXT.lock().unwrap();
 
         if let Some(_) = ctx.current_music.as_ref() {
