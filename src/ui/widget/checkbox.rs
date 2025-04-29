@@ -1,7 +1,7 @@
 use std::{cell::Cell, path::PathBuf};
 
 use crate::{
-    core::{texture_rect::TextureRect, TextureHandle},
+    core::{texture_rect::TextureRect, PathLike, TextureHandle},
     ui::util::{
         length::{MaxLen, MinLen},
         rect::FRect,
@@ -35,8 +35,8 @@ pub struct CheckBox<'state> {
 }
 
 impl<'state> CheckBox<'state> {
-    pub fn new(
-        texture_path: PathBuf,
+    pub fn new<'a, P: Into<PathLike<'a>>>(
+        texture_path: P,
         min: MinLen,
         max: MaxLen,
         checked: &'state Cell<bool>,
@@ -46,6 +46,8 @@ impl<'state> CheckBox<'state> {
         uncheck: TextureRect,
         uncheck_faded: TextureRect,
     ) -> Self {
+        let texture_path: PathLike = texture_path.into();
+        let texture_path: PathBuf = texture_path.into();
         Self {
             texture_path,
             min,

@@ -50,10 +50,13 @@ fn do_example<T: game_system::core::System>(
         .join("ui_test_sound.mp3");
 
     let mut button = Button::new(
+        Box::new(|| -> Result<(), String> {
+            button_release.set(true);
+            Ok(())
+        }),
         Box::new(idle),
         Box::new(hovered),
         Box::new(pressed),
-        &button_release,
     );
     button.sizing_inherit_choice = ButtonInheritSizing::Hovered;
     button.hotkey = Some(b'a');
@@ -156,6 +159,7 @@ fn do_example<T: game_system::core::System>(
         let r = update_gui(&mut background, events, system, dt)?;
 
         if button_release.get() {
+            button_release.set(false);
             system.sound(&button_sound_path, 0., 0.)?;
             println!("button was pressed");
         }

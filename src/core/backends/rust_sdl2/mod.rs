@@ -33,7 +33,7 @@ use crate::core::{
     color::Color,
     event::MouseWheelEvent,
     texture_rect::{TextureDestinationF, TextureSource, TextureSourceF},
-    Event, NonEmptyStr, System, TextureDestination,
+    Event, NonEmptyStr, PathLike, System, TextureDestination,
 };
 
 /// there's only one sdl mixer music callback globally which accepts a function
@@ -394,7 +394,17 @@ impl System for RustSDL2System {
         Ok((width, height))
     }
 
-    fn texture(&mut self, image_path: &Path) -> Result<TextureHandle, String> {
+    fn texture<'a, 's, P>(
+        &'s mut self,
+        image_path: P,
+    ) -> Result<Self::ImageTextureHandle<'s>, String>
+    where
+        P: Into<PathLike<'a>>,
+        's: 'a,
+    {
+        let image_path: PathLike = image_path.into();
+        let mut maybe_buf: Option<PathBuf> = None;
+        let image_path = image_path.get_path(&mut maybe_buf);
         let texture_key = TextureKey::from_path(image_path);
 
         let txt = self.texture_cache.try_get_or_insert_mut_ref(
@@ -540,12 +550,15 @@ impl System for RustSDL2System {
         }
     }
 
-    fn sound(
-        &mut self,
-        sound: &std::path::Path,
-        direction: f32,
-        distance: f32,
-    ) -> Result<(), String> {
+    fn sound<'a, 's, P>(&'s mut self, sound: P, direction: f32, distance: f32) -> Result<(), String>
+    where
+        P: Into<PathLike<'a>>,
+        's: 'a,
+    {
+        let sound: PathLike = sound.into();
+        let mut maybe_buf: Option<PathBuf> = None;
+        let sound = sound.get_path(&mut maybe_buf);
+
         // if a chunk's volume is changed, it applies retroactively to any
         // currently playing chunks as well. I don't like this. instead, setting
         // volume, etc, by channel is better
@@ -726,12 +739,20 @@ impl System for RustSDL2System {
         Ok(())
     }
 
-    fn music(
+    fn music<'a, 's, P>(
         &mut self,
-        music: &Path,
+        music: P,
         fade_out_duration: Option<Duration>,
         fade_in_duration: Option<Duration>,
-    ) -> Result<(), String> {
+    ) -> Result<(), String>
+    where
+        P: Into<PathLike<'a>>,
+        's: 'a,
+    {
+        let music: PathLike = music.into();
+        let mut maybe_buf: Option<PathBuf> = None;
+        let music = music.get_path(&mut maybe_buf);
+
         let music = sdl2::mixer::Music::from_file(self.s.audio_path_base.join(music))?;
         let mut ctx = MUSIC_CONTEXT.lock().unwrap();
 

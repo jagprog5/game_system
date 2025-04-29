@@ -37,15 +37,14 @@ pub enum ButtonInheritSizing {
 }
 
 pub struct Button<'b, 'state, T: crate::core::System + 'b> {
+    pub functionality: Box<dyn FnMut() -> Result<(), String> + 'state>,
+
     pub idle: Box<dyn Widget<T> + 'b>,
     pub hovered: Box<dyn Widget<T> + 'b>,
     pub pressed: Box<dyn Widget<T> + 'b>,
 
     pub sizing: NestedContentSizing,
     pub sizing_inherit_choice: ButtonInheritSizing,
-
-    /// use this to implement functionality
-    pub released: &'state Cell<bool>,
 
     /// a button which can be used to press the button
     pub hotkey: Option<u8>,
@@ -59,16 +58,16 @@ pub struct Button<'b, 'state, T: crate::core::System + 'b> {
 
 impl<'b, 'state, T: crate::core::System + 'b> Button<'b, 'state, T> {
     pub fn new(
+        functionality: Box<dyn FnMut() -> Result<(), String> + 'state>,
         idle: Box<dyn Widget<T> + 'b>,
         hovered: Box<dyn Widget<T> + 'b>,
         pressed: Box<dyn Widget<T> + 'b>,
-        released: &'state Cell<bool>,
     ) -> Self {
         Button {
             idle,
             hovered,
             pressed,
-            released,
+            functionality,
             hotkey: None,
             state: CellRefOrCell::Cell(Cell::new(Default::default())),
             sizing: Default::default(),
@@ -160,7 +159,6 @@ impl<'b, 'state, T: crate::core::System + 'b> Widget<T> for Button<'b, 'state, T
         mut event: WidgetUpdateEvent,
         sys_interface: &mut T,
     ) -> Result<bool, String> {
-        self.released.set(false);
         let non_zero_area: TextureRect = match event.position.into() {
             Some(v) => v,
             None => return Ok(false), // can't click or hover with zero area
@@ -177,7 +175,7 @@ impl<'b, 'state, T: crate::core::System + 'b> Widget<T> for Button<'b, 'state, T
                                 });
                             } else {
                                 // rising edge
-                                self.released.set(true);
+                                (self.functionality)()?;
                                 self.state.set(ButtonPrivateState {
                                     s: ButtonState::Idle,
                                 });
@@ -195,7 +193,7 @@ impl<'b, 'state, T: crate::core::System + 'b> Widget<T> for Button<'b, 'state, T
                         if !mouse.down {
                             if mouse.changed {
                                 // rising edge
-                                self.released.set(true);
+                                (self.functionality)()?;
                             }
                             self.state.set(ButtonPrivateState {
                                 s: ButtonState::Hovered,

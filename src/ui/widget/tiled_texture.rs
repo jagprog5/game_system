@@ -3,7 +3,7 @@ use std::{num::NonZeroU32, path::PathBuf};
 use crate::{
     core::{
         texture_rect::{TextureRect, TextureSource},
-        TextureHandle,
+        PathLike, TextureHandle,
     },
     ui::util::{
         length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
@@ -37,9 +37,11 @@ pub struct TiledTexture {
 }
 
 impl TiledTexture {
-    pub fn new(background: (PathBuf, TextureSource)) -> Self {
+    pub fn new<'a, P: Into<PathLike<'a>>>(background: (P, TextureSource)) -> Self {
+        let p: PathLike = background.0.into();
+        let p: PathBuf = p.into();
         Self {
-            background,
+            background: (p, background.1),
             sizing: Default::default(),
             background_draw_pos: Default::default(),
         }
@@ -59,7 +61,7 @@ impl<T: crate::core::System> Widget<T> for TiledTexture {
             let pos_width = pos.w.get() as i32;
             let pos_height = pos.h.get() as i32;
 
-            let mut txt = sys_interface.texture(&txt_path)?;
+            let mut txt = sys_interface.texture(txt_path)?;
 
             let txt_size_safe = match maybe_txt_src {
                 TextureSource::WholeTexture => txt.size()?,

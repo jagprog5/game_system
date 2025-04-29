@@ -3,7 +3,7 @@ use std::{ops::Not, path::PathBuf};
 use crate::{
     core::{
         texture_rect::{TextureDestinationF, TextureRect, TextureRectF, TextureSource},
-        TextureHandle,
+        PathLike, TextureHandle,
     },
     ui::util::{
         aspect_ratio::AspectRatioFailPolicy,
@@ -45,7 +45,9 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn new(texture_path: PathBuf) -> Self {
+    pub fn new<'a, P: Into<PathLike<'a>>>(texture_path: P) -> Self {
+        let texture_path: PathLike = texture_path.into();
+        let texture_path: PathBuf = texture_path.into();
         Texture {
             texture_path: texture_path.to_path_buf(),
             texture_src: Default::default(),

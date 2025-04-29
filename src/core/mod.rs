@@ -7,6 +7,7 @@ pub mod texture_rect;
 use std::num::NonZeroU16;
 use std::num::NonZeroU32;
 use std::path::Path;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use clipping_rect::ClippingRect;
@@ -97,7 +98,13 @@ pub trait System: Sized {
     fn get_clip(&mut self) -> ClippingRect;
 
     /// load texture from file or reuse from (unspecified) cache
-    fn texture(&mut self, image_path: &Path) -> Result<Self::ImageTextureHandle<'_>, String>;
+    fn texture<'a, 's, P>(
+        &'s mut self,
+        image_path: P,
+    ) -> Result<Self::ImageTextureHandle<'s>, String>
+    where
+        P: Into<PathLike<'a>>,
+        's: 'a;
 
     /// render text or reuse from (unspecified) cache
     ///
@@ -123,7 +130,15 @@ pub trait System: Sized {
     ///
     /// distance from 0 to 1 inclusively. a distance of 0 has full volume. a
     /// distance of 1 will be very quiet but may not be silent
-    fn sound(&mut self, sound: &Path, direction: f32, distance: f32) -> Result<(), String>;
+    fn sound<'a, 's, P>(
+        &'s mut self,
+        sound: P,
+        direction: f32,
+        distance: f32,
+    ) -> Result<(), String>
+    where
+        P: Into<PathLike<'a>>,
+        's: 'a;
 
     /// non blocking
     ///
@@ -165,12 +180,15 @@ pub trait System: Sized {
     /// if music is currently playing, fades it out. the fade out duration is
     /// used to stop the currently playing track, not the next one that will be
     /// playing from this call
-    fn music(
+    fn music<'a, 's, P>(
         &mut self,
-        music: &Path,
+        music: P,
         fade_out_duration: Option<Duration>,
         fade_in_duration: Option<Duration>,
-    ) -> Result<(), String>;
+    ) -> Result<(), String>
+    where
+        P: Into<PathLike<'a>>,
+        's: 'a;
 
     /// non blocking
     fn stop_music(&mut self, fade_out_duration: Option<Duration>) -> Result<(), String>;
@@ -187,6 +205,65 @@ pub trait System: Sized {
     /// receive input from the user. wait a max amount of time to wait in
     /// milliseconds
     fn event_timeout(&mut self, timeout: Duration) -> Option<Event>;
+}
+
+// =============================================================================
+
+pub enum PathLike<'a> {
+    Path(&'a Path),
+    Buf(PathBuf),
+    Parts(&'a [&'static str]),
+}
+
+impl<'a> PathLike<'a> {
+    pub fn get_path(self, maybe_buf: &'a mut Option<PathBuf>) -> &'a Path {
+        match self {
+            PathLike::Path(path) => path,
+            PathLike::Buf(buf) => {
+                *maybe_buf = Some(buf);
+                maybe_buf.as_ref().unwrap()
+            }
+            PathLike::Parts(parts) => {
+                let buf: PathBuf = parts.iter().collect();
+                *maybe_buf = Some(buf);
+                maybe_buf.as_ref().unwrap()
+            }
+        }
+    }
+}
+
+impl<'a> From<PathBuf> for PathLike<'a> {
+    fn from(p: PathBuf) -> Self {
+        PathLike::Buf(p)
+    }
+}
+
+impl<'a> From<&'a PathBuf> for PathLike<'a> {
+    fn from(p: &'a PathBuf) -> Self {
+        PathLike::Path(p)
+    }
+}
+
+impl<'a> From<&'a Path> for PathLike<'a> {
+    fn from(p: &'a Path) -> Self {
+        PathLike::Path(p)
+    }
+}
+
+impl<'a> From<&'a [&'static str]> for PathLike<'a> {
+    fn from(parts: &'a [&'static str]) -> Self {
+        PathLike::Parts(parts)
+    }
+}
+
+impl<'a> From<PathLike<'a>> for PathBuf {
+    fn from(ps: PathLike<'a>) -> Self {
+        match ps {
+            PathLike::Path(p) => p.to_path_buf(),
+            PathLike::Buf(buf) => buf,
+            PathLike::Parts(parts) => parts.iter().collect(),
+        }
+    }
 }
 
 // =============================================================================

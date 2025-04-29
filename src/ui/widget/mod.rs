@@ -283,9 +283,10 @@ pub fn place<T: crate::core::System>(
     })
 }
 
-#[allow(dead_code)]
 pub enum HandlerReturnValue {
+    /// the next frame can wait a very long time for user input
     DelayNextFrame,
+    /// the next frame should occur reasonably soon after this one
     NextFrame,
     Stop,
 }

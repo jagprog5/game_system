@@ -46,7 +46,7 @@ fn do_example<T: game_system::core::System>(
     gui_loop(DELAY, &mut system, |system, events, dt| {
         // constructs the whole GUI each frame. other examples don't bother
         // doing this, but it's key to claiming it's a "immediate mode" gui.
-        let mut horizontal_0 = Texture::new(image_path.clone());
+        let mut horizontal_0 = Texture::new(&["examples", "assets", "test.jpg"][..]);
         horizontal_0.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
         horizontal_0.request_aspect_ratio = false;
         // horizontal_0.

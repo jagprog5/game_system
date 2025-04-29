@@ -11,7 +11,7 @@ use game_system::core::{LoopingSoundHandle, TextureHandle};
 fn do_test<T: game_system::core::System>(font_file_content: &'static [u8]) -> Result<(), String> {
     let mut system = T::new(None, font_file_content)?;
     system.audio_path_base(&Path::new(".").join("examples").join("assets"));
-    system.texture_path_base(&Path::new(".").join("examples").join("assets"));
+    system.texture_path_base(&Path::new(".").join("examples"));
     system.present()?;
     std::thread::sleep(Duration::from_millis(500));
     system.recreate_window(Some((
@@ -25,7 +25,7 @@ fn do_test<T: game_system::core::System>(font_file_content: &'static [u8]) -> Re
 
     let window_size = system.size()?;
     {
-        let mut test_texture = system.texture(Path::new("test.jpg"))?;
+        let mut test_texture = system.texture(&["assets", "test.jpg"][..])?;
         let test_texture_size = test_texture.size()?;
 
         // top right, copy with no rotation and simple scaling
@@ -104,9 +104,9 @@ fn do_test<T: game_system::core::System>(font_file_content: &'static [u8]) -> Re
 
     // twice of left ear, quite. and once on right ear, loud
     for _ in 0..3 {
-        system.sound(&noise_sound, 0.75, 0.95)?;
+        system.sound(noise_sound, 0.75, 0.95)?;
         std::thread::sleep(Duration::from_millis(175));
-        system.sound(&noise_sound, 0.25, 0.)?;
+        system.sound(noise_sound, 0.25, 0.)?;
         std::thread::sleep(Duration::from_millis(175));
     }
 
@@ -149,14 +149,14 @@ fn do_test<T: game_system::core::System>(font_file_content: &'static [u8]) -> Re
 
     // play sound fading in
     system.music(
-        &noise_sound,
+        noise_sound,
         Some(Duration::from_millis(250)),
         Some(Duration::from_millis(250)),
     )?;
     std::thread::sleep(Duration::from_millis(750));
     // fade it out and replace it
     system.music(
-        &noise_sound,
+        noise_sound,
         Some(Duration::from_millis(250)),
         Some(Duration::from_millis(250)),
     )?;

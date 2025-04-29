@@ -3,7 +3,7 @@ use std::{num::NonZeroU32, path::PathBuf};
 use crate::{
     core::{
         texture_rect::{TextureDestination, TextureRect, TextureRotation},
-        TextureHandle,
+        PathLike, TextureHandle,
     },
     ui::util::{
         length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
@@ -55,12 +55,14 @@ pub struct Border<'b, T: crate::core::System + 'b> {
 }
 
 impl<'b, T: crate::core::System + 'b> Border<'b, T> {
-    pub fn new(
+    pub fn new<'a, P: Into<PathLike<'a>>>(
         contained: Box<dyn Widget<T> + 'b>,
-        texture_path: PathBuf,
+        texture_path: P,
         length_texture_src: TextureRect,
         corner_texture_src: TextureRect,
     ) -> Self {
+        let texture_path: PathLike = texture_path.into();
+        let texture_path: PathBuf = texture_path.into();
         Self {
             contained,
             texture_path,
