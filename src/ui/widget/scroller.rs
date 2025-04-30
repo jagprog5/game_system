@@ -50,15 +50,13 @@ pub struct Scroller<'b, 'scroll_state, T: crate::core::System> {
     /// click and drag scroll
     pub drag_deadzone: u32,
     pub scroll_wheel_sensitivity: i32,
-    pub scroll_x_enabled: bool,
-    pub scroll_y_enabled: bool,
 
     /// state which should persist between frames
     pub drag_state: &'scroll_state Cell<DragState>,
-    /// state which should persist between frames
-    pub scroll_x: &'scroll_state Cell<i32>,
-    /// state which should persist between frames
-    pub scroll_y: &'scroll_state Cell<i32>,
+    /// state which should persist between frames. None if disable
+    pub scroll_x: Option<&'scroll_state Cell<i32>>,
+    /// state which should persist between frames. None if disable
+    pub scroll_y: Option<&'scroll_state Cell<i32>>,
 
     pub contained: Box<dyn Widget<T> + 'b>,
 
@@ -67,9 +65,9 @@ pub struct Scroller<'b, 'scroll_state, T: crate::core::System> {
     pub lock_small_content_x: Option<MaxLenFailPolicy>,
     pub lock_small_content_y: Option<MaxLenFailPolicy>,
     /// an output indicating the scroll amount and the max scroll, respectively
-    pub scroll_x_portion: Option<&'scroll_state Cell<(f32, f32)>>,
+    pub scroll_x_portion: Option<&'scroll_state Cell<(i32, i32)>>,
     /// an output indicating the scroll amount and the max scroll, respectively
-    pub scroll_y_portion: Option<&'scroll_state Cell<(f32, f32)>>,
+    pub scroll_y_portion: Option<&'scroll_state Cell<(i32, i32)>>,
 
     /// calculated during update, stored for draw.
     /// used for clipping rect calculations
@@ -81,25 +79,21 @@ impl<'b, 'scroll_state, T: crate::core::System> Scroller<'b, 'scroll_state, T> {
     /// scroll_x, scroll_y, and drag_state are states which should be persist
     /// between frames
     pub fn new(
-        scroll_x_enabled: bool,
-        scroll_y_enabled: bool,
-        drag_state: &'scroll_state Cell<DragState>,
-        scroll_x: &'scroll_state Cell<i32>,
-        scroll_y: &'scroll_state Cell<i32>,
         contains: Box<dyn Widget<T> + 'b>,
+        scroll_x: Option<&'scroll_state Cell<i32>>,
+        scroll_y: Option<&'scroll_state Cell<i32>>,
+        drag_state: &'scroll_state Cell<DragState>,
     ) -> Self {
         Self {
             drag_state,
             drag_deadzone: SCROLLER_DRAG_DEAD_ZONE_DEFAULT,
             scroll_wheel_sensitivity: SCROLLER_SCROLL_WHEEL_SENSITIVITY_DEFAULT,
-            scroll_x_enabled,
-            scroll_y_enabled,
             scroll_x,
             scroll_y,
             scroll_x_portion: None,
             scroll_y_portion: None,
             contained: contains,
-            lock_small_content_x: Some(MaxLenFailPolicy::NEGATIVE),
+            lock_small_content_x: Some(MaxLenFailPolicy::CENTERED),
             lock_small_content_y: Some(MaxLenFailPolicy::NEGATIVE),
             sizing: NestedContentSizing::Inherit,
             clipping_rect_for_contained_from_update: ClippingRect::None,
@@ -115,10 +109,10 @@ fn apply_scroll_restrictions(
     event_position: TextureRect,
     scroll_x: &mut i32,
     scroll_y: &mut i32,
-    lock_small_content_y: Option<MaxLenFailPolicy>,
     lock_small_content_x: Option<MaxLenFailPolicy>,
-    scroll_x_portion: Option<&Cell<(f32, f32)>>,
-    scroll_y_portion: Option<&Cell<(f32, f32)>>,
+    lock_small_content_y: Option<MaxLenFailPolicy>,
+    scroll_x_portion: Option<&Cell<(i32, i32)>>,
+    scroll_y_portion: Option<&Cell<(i32, i32)>>,
 ) {
     position_for_contained.x += *scroll_x;
     position_for_contained.y += *scroll_y;
@@ -135,7 +129,7 @@ fn apply_scroll_restrictions(
             *scroll_y = ((event_position_h - position_for_contained_h) as f32
                 * lock_small_content_y.0)
                 .round() as i32;
-            scroll_y_portion.map(|c| c.set((0., 0.)));
+            scroll_y_portion.map(|c| c.set((0, 0)));
         } else {
             let violating_top = position_for_contained.y < event_position.y;
             let violating_bottom = position_for_contained.y + position_for_contained_h
@@ -147,10 +141,10 @@ fn apply_scroll_restrictions(
                 *scroll_y -= ((position_for_contained.y + position_for_contained_h)
                     - (event_position.y + event_position_h)) as i32;
             }
-            let top_offset = (position_for_contained.y - event_position.y) as f32;
-            let available_space = (event_position_h - position_for_contained_h) as f32;
+            let top_offset = position_for_contained.y - event_position.y;
+            let available_space = event_position_h - position_for_contained_h;
             scroll_y_portion
-                .map(|c| c.set((top_offset.clamp(0., available_space), available_space)));
+                .map(|c| c.set((top_offset.clamp(0, available_space), available_space)));
         }
     } else {
         let down_from_top = position_for_contained.y > event_position.y;
@@ -164,9 +158,9 @@ fn apply_scroll_restrictions(
             *scroll_y -= ((position_for_contained.y + position_for_contained_h)
                 - (event_position.y + event_position_h)) as i32;
         }
-        let visible_top = (event_position.y - position_for_contained.y) as f32;
-        let hidden_range = (position_for_contained_h - event_position_h) as f32;
-        scroll_y_portion.map(|c| c.set((visible_top.clamp(0., hidden_range), hidden_range)));
+        let visible_top = event_position.y - position_for_contained.y;
+        let hidden_range = position_for_contained_h - event_position_h;
+        scroll_y_portion.map(|c| c.set((visible_top.clamp(0, hidden_range), hidden_range)));
     }
 
     if position_for_contained_w < event_position_w {
@@ -175,7 +169,7 @@ fn apply_scroll_restrictions(
             *scroll_x = ((event_position_w - position_for_contained_w) as f32
                 * lock_small_content_x.0)
                 .round() as i32;
-            scroll_x_portion.map(|c| c.set((0., 0.)));
+            scroll_x_portion.map(|c| c.set((0, 0)));
         } else {
             let violating_left = position_for_contained.x < event_position.x;
             let violating_right = position_for_contained.x + position_for_contained_w
@@ -187,10 +181,10 @@ fn apply_scroll_restrictions(
                 *scroll_x -= ((position_for_contained.x + position_for_contained_w)
                     - (event_position.x + event_position_w)) as i32;
             }
-            let left_offset = (position_for_contained.x - event_position.x) as f32;
-            let available_space = (event_position_w - position_for_contained_w) as f32;
+            let left_offset = position_for_contained.x - event_position.x;
+            let available_space = event_position_w - position_for_contained_w;
             scroll_x_portion
-                .map(|c| c.set((left_offset.clamp(0., available_space), available_space)));
+                .map(|c| c.set((left_offset.clamp(0, available_space), available_space)));
         }
     } else {
         let left_from_right = position_for_contained.x > event_position.x;
@@ -204,9 +198,9 @@ fn apply_scroll_restrictions(
             *scroll_x -= ((position_for_contained.x + position_for_contained_w)
                 - (event_position.x + event_position_w)) as i32;
         }
-        let visible_left = (event_position.x - position_for_contained.x) as f32;
-        let hidden_range = (position_for_contained_w - event_position_w) as f32;
-        scroll_x_portion.map(|c| c.set((visible_left.clamp(0., hidden_range), hidden_range)));
+        let visible_left = event_position.x - position_for_contained.x;
+        let hidden_range = position_for_contained_w - event_position_w;
+        scroll_x_portion.map(|c| c.set((visible_left.clamp(0, hidden_range), hidden_range)));
     }
 }
 
@@ -303,10 +297,14 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
                     if pos.contains_point((m.x, m.y))
                         && event.clipping_rect.contains_point((m.x, m.y))
                     {
-                        self.scroll_x
-                            .set(self.scroll_x.get() - m.wheel_dx * self.scroll_wheel_sensitivity);
-                        self.scroll_y
-                            .set(self.scroll_y.get() + m.wheel_dy * self.scroll_wheel_sensitivity);
+                        self.scroll_x.map(|scroll_x| {
+                            scroll_x
+                                .set(scroll_x.get() - m.wheel_dx * self.scroll_wheel_sensitivity)
+                        });
+                        self.scroll_y.map(|scroll_y| {
+                            scroll_y
+                                .set(scroll_y.get() + m.wheel_dy * self.scroll_wheel_sensitivity)
+                        });
                     }
                 }
                 crate::core::event::Event::Mouse(m) => {
@@ -336,24 +334,20 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
                             (start_x - m.x).unsigned_abs() > self.drag_deadzone;
                         let dragged_far_enough_y =
                             (start_y - m.y).unsigned_abs() > self.drag_deadzone;
-                        let trigger_x = dragged_far_enough_x && self.scroll_x_enabled;
-                        let trigger_y = dragged_far_enough_y && self.scroll_y_enabled;
+                        let trigger_x = dragged_far_enough_x && self.scroll_x.is_some();
+                        let trigger_y = dragged_far_enough_y && self.scroll_y.is_some();
                         if trigger_x || trigger_y {
                             self.drag_state.set(DragState::Dragging((
-                                m.x - self.scroll_x.get(),
-                                m.y - self.scroll_y.get(),
+                                m.x - self.scroll_x.map(|c| c.get()).unwrap_or(0),
+                                m.y - self.scroll_y.map(|c| c.get()).unwrap_or(0),
                             )));
                             // intentional fallthrough
                         }
                     }
 
                     if let DragState::Dragging((drag_x, drag_y)) = self.drag_state.get() {
-                        if self.scroll_x_enabled {
-                            self.scroll_x.set(m.x - drag_x);
-                        }
-                        if self.scroll_y_enabled {
-                            self.scroll_y.set(m.y - drag_y);
-                        }
+                        self.scroll_x.map(|scroll_x| scroll_x.set(m.x - drag_x));
+                        self.scroll_y.map(|scroll_y| scroll_y.set(m.y - drag_y));
                     }
 
                     // LAST: if currently dragging then consume all mouse events
@@ -382,25 +376,27 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
             }
         };
 
-        let mut scroll_x_arg = self.scroll_x.get();
-        let mut scroll_y_arg = self.scroll_y.get();
+        let mut scroll_x_arg = self.scroll_x.map(|c| c.get()).unwrap_or(0);
+        let mut scroll_y_arg = self.scroll_y.map(|c| c.get()).unwrap_or(0);
         apply_scroll_restrictions(
             position_for_contained,
             pos,
             &mut scroll_x_arg,
             &mut scroll_y_arg,
-            self.lock_small_content_y,
             self.lock_small_content_x,
+            self.lock_small_content_y,
             self.scroll_x_portion,
             self.scroll_y_portion,
         );
-        self.scroll_x.set(scroll_x_arg);
-        self.scroll_y.set(scroll_y_arg);
+        self.scroll_x.map(|c| c.set(scroll_x_arg));
+        self.scroll_y.map(|c| c.set(scroll_y_arg));
 
         self.clipping_rect_for_contained_from_update =
             event.clipping_rect.intersect_area(Some(pos));
-        self.position_for_contained_from_update.x += self.scroll_x.get() as f32;
-        self.position_for_contained_from_update.y += self.scroll_y.get() as f32;
+        self.position_for_contained_from_update.x +=
+            self.scroll_x.map(|c| c.get()).unwrap_or(0) as f32;
+        self.position_for_contained_from_update.y +=
+            self.scroll_y.map(|c| c.get()).unwrap_or(0) as f32;
 
         let mut event_for_contained = event.sub_event(self.position_for_contained_from_update);
         event_for_contained.clipping_rect = self.clipping_rect_for_contained_from_update;

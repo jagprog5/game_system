@@ -117,19 +117,16 @@ fn do_example<T: game_system::core::System>(
         MultiLineMinHeightFailPolicy::None(MinLenFailPolicy::POSITIVE, MaxLenFailPolicy::NEGATIVE);
 
     let drag_state = Cell::new(DragState::default());
-    let scroll_x = Cell::new(0i32);
     let scroll_y = Cell::new(0i32);
 
     // put the text in a vertical scroller
     let mut scroller = Scroller::new(
-        false,
-        true,
-        &drag_state,
-        &scroll_x,
-        &scroll_y,
         Box::new(text),
+        None,
+        Some(&scroll_y),
+        &drag_state,
     );
-    scroller.lock_small_content_y = Some(MaxLenFailPolicy::NEGATIVE);
+    // scroller.lock_small_content_y = None;
     scroller.sizing = NestedContentSizing::Custom(Default::default());
 
     let mut layout = VerticalLayout::default();

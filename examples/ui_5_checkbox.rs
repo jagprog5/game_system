@@ -79,13 +79,13 @@ fn do_example<T: game_system::core::System>(
     let scroll_y = Cell::new(0i32);
 
     let mut scroller = Scroller::<'_, '_, T>::new(
-        true,
-        true,
-        &drag_state,
-        &scroll_x,
-        &scroll_y,
         Box::new(checkbox),
+        Some(&scroll_x),
+        Some(&scroll_y),
+        &drag_state,
     );
+    scroller.lock_small_content_x = None;
+    scroller.lock_small_content_y = None;
     scroller.sizing = NestedContentSizing::Custom(CustomSizing::default());
 
     gui_loop(DELAY, &mut system, |system, events, dt| {
