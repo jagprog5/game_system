@@ -39,6 +39,7 @@ fn do_example<T: game_system::core::System>(
             (HEIGHT as u32).try_into().unwrap(),
         )),
         font_file_content,
+        false,
     )?;
 
     const DELAY: Duration = Duration::from_micros(16666);

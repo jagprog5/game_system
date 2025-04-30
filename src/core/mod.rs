@@ -46,7 +46,7 @@ pub trait System: Sized {
     type ImageTextureHandle<'system>: crate::core::TextureHandle<'system>
     where
         Self: 'system;
-    /// should apply some unspecified interpolation or smoothing
+    /// applies scaling based on setting passed to System::new()
     type TextTextureHandle<'system>: crate::core::TextureHandle<'system>
     where
         Self: 'system;
@@ -60,9 +60,16 @@ pub trait System: Sized {
     ///
     /// provide font file data. it will be used for text rendering operations.
     /// it can ref an empty array if no text rendering will occur
+    ///
+    /// set if font texture interpolation should occurs - the correct setting
+    /// for this is situational. if a blocky font is used, interpolation should
+    /// be set to false (it will apply nearest neighbor sampling to retain
+    /// blocky-ness). but smooth looking fonts should have interpolation set to
+    /// true (it will apply some unspecified interpolation or smoothing)
     fn new(
         size: Option<(&str, NonZeroU32, NonZeroU32)>,
         font_file_data: &'static [u8],
+        font_texture_interpolate: bool,
     ) -> Result<Self, String>;
 
     /// see new()

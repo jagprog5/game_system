@@ -122,6 +122,7 @@ struct RustSDL2SystemOtherMembers {
     // dropped last
     _sdl: Sdl,
     font_file_data: &'static [u8],
+    text_texture_interpolate: bool,
 }
 
 impl Drop for RustSDL2System {
@@ -263,6 +264,7 @@ impl System for RustSDL2System {
     fn new(
         size: Option<(&str, NonZeroU32, NonZeroU32)>,
         font_file_data: &'static [u8],
+        text_texture_interpolate: bool,
     ) -> Result<Self, String> {
         let sdl = sdl2::init()?;
         let video = sdl.video()?;
@@ -336,6 +338,7 @@ impl System for RustSDL2System {
                 _audio: audio,
                 _sdl: sdl,
                 font_file_data,
+                text_texture_interpolate,
             },
         })
     }
@@ -509,7 +512,9 @@ impl System for RustSDL2System {
                     .map(|txt| TextureWrapper(txt)) // safety - immediately put in wrapper
                     .map_err(|e| e.to_string())?;
                 texture.0.set_blend_mode(sdl2::render::BlendMode::Blend);
-                texture.0.set_scale_mode(sdl2::render::ScaleMode::Linear);
+                if self.s.text_texture_interpolate {
+                    texture.0.set_scale_mode(sdl2::render::ScaleMode::Linear);
+                }
                 Ok(texture)
             },
         )?;

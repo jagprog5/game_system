@@ -37,6 +37,7 @@ fn do_example<T: game_system::core::System>(
             (HEIGHT as u32).try_into().unwrap(),
         )),
         font_file_content,
+        false,
     )?;
 
     let mut texture_widget = Texture::new(image_path);

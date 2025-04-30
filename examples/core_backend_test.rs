@@ -9,7 +9,7 @@ use game_system::core::texture_rect::{TextureDestination, TextureRect};
 use game_system::core::{LoopingSoundHandle, TextureHandle};
 
 fn do_test<T: game_system::core::System>(font_file_content: &'static [u8]) -> Result<(), String> {
-    let mut system = T::new(None, font_file_content)?;
+    let mut system = T::new(None, font_file_content, false)?;
     system.audio_path_base(&Path::new(".").join("examples").join("assets"));
     system.texture_path_base(&Path::new(".").join("examples"));
     system.present()?;

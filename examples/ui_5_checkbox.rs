@@ -29,7 +29,7 @@ fn do_example<T: game_system::core::System>(
         (HEIGHT as u32).try_into().unwrap(),
     );
 
-    let mut system = T::new(Some(window_settings), font_file_content)?;
+    let mut system = T::new(Some(window_settings), font_file_content, false)?;
 
     let click_sound_path = Path::new(".")
         .join("examples")
