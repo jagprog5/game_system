@@ -18,7 +18,8 @@ This defines traits for a 2D game framework and gives an implementation based on
         - pt size
         - wrap width
         - color
-    - src + dst + rotation
+    - from software rendered (raw pixel access)
+    - copying to screen - src + dst + rotation
     - clipping rectangle (aka scissor)
 - audio
     - sounds
@@ -42,7 +43,7 @@ This defines traits for a 2D game framework and gives an implementation based on
     - multi line label
     - single line label
     - strut (force spacing)
-    - texture widget
+    - image display widget
  - layout
     - vertical / horizontal
     - scroller

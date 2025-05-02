@@ -1,10 +1,6 @@
-use std::{
-    ffi::{CStr, CString},
-    num::NonZeroU32,
-    os::raw::c_int,
-};
+use std::{ffi::CString, num::NonZeroU32, os::raw::c_int};
 
-use sdl2::{rwops::RWops, surface::Surface, sys::SDL_Color, ttf::Sdl2TtfContext};
+use sdl2::{get_error, rwops::RWops, surface::Surface, sys::SDL_Color, ttf::Sdl2TtfContext};
 
 use crate::core::color::Color;
 
@@ -28,8 +24,7 @@ impl Font {
         unsafe {
             let raw = sdl2::sys::ttf::TTF_OpenFontRW(rwops.raw(), 0, point_size as c_int);
             if raw.is_null() {
-                let err = sdl2::sys::SDL_GetError();
-                Err(CStr::from_ptr(err).to_str().unwrap().to_owned())
+                Err(get_error())
             } else {
                 Ok(Font { raw, rwops })
             }
@@ -62,8 +57,7 @@ impl Font {
             };
 
             if out.is_null() {
-                let err = sdl2::sys::SDL_GetError();
-                Err(CStr::from_ptr(err).to_str().unwrap().to_owned())
+                Err(get_error())
             } else {
                 Ok(Surface::from_ll(out))
             }

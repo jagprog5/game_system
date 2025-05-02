@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use clipping_rect::ClippingRect;
 use color::Color;
+use color::Surface;
 use event::Event;
 use texture_rect::TextureDestination;
 use texture_rect::TextureDestinationF;
@@ -38,6 +39,13 @@ pub trait TextureHandle<'system>: Sized {
 
     /// get the size of this texture; width, height.
     fn size(&self) -> Result<(NonZeroU32, NonZeroU32), String>;
+
+    /// returns a row major array of the pixels in the texture
+    ///
+    /// warning! this operation may be slow
+    fn pixels<Src>(&mut self, src: Src) -> Result<Surface, String>
+    where
+        Src: Into<TextureSource>;
 }
 
 pub trait System: Sized {
@@ -46,7 +54,7 @@ pub trait System: Sized {
     type ImageTextureHandle<'system>: crate::core::TextureHandle<'system>
     where
         Self: 'system;
-    /// applies scaling based on setting passed to System::new()
+    /// should apply scaling based on setting passed to System::new()
     type TextTextureHandle<'system>: crate::core::TextureHandle<'system>
     where
         Self: 'system;
@@ -105,19 +113,19 @@ pub trait System: Sized {
     fn get_clip(&mut self) -> ClippingRect;
 
     /// load texture from file or reuse from (unspecified) cache
-    fn texture<'a, 's, P>(
-        &'s mut self,
-        image_path: P,
-    ) -> Result<Self::ImageTextureHandle<'s>, String>
+    fn image<'a, P>(&mut self, image_path: P) -> Result<Self::ImageTextureHandle<'_>, String>
     where
-        P: Into<PathLike<'a>>,
-        's: 'a;
+        P: Into<PathLike<'a>>;
 
     /// render text or reuse from (unspecified) cache
     ///
     /// there is no guarantee that the provided point size will be the one that
     /// is used to render the font - the output texture size is unspecified and
     /// should be scaled appropriately.
+    ///
+    /// text should be discretized - if it's possible for a large number of
+    /// different tuple(text, color, wrap_width) keys to exist, then this will
+    /// not work well with the cache
     fn text(
         &mut self,
         text: NonEmptyStr,
@@ -125,6 +133,25 @@ pub trait System: Sized {
         point_size: NonZeroU16,
         wrap_width: Option<NonZeroU32>,
     ) -> Result<Self::TextTextureHandle<'_>, String>;
+
+    /// software render texture or reuse from (unspecified) cache. parallelism
+    /// is recommended, and the output texture size should be small
+    ///
+    /// the provided key is user defined and should uniquely and
+    /// deterministically include all information about how the texture is
+    /// generated - bijective mapping
+    ///
+    /// textures should be discretized - if it's possible for a large number of
+    /// different texture keys to be used at the same time, then this will not
+    /// work well with the cache
+    fn pixels<'a, K, G>(
+        &mut self,
+        key: K,
+        generation_function: G,
+    ) -> Result<Self::ImageTextureHandle<'_>, String>
+    where
+        K: Into<BytesLike<'a>>,
+        G: Fn(&mut Self) -> Result<Surface, String>;
 
     /// non blocking
     ///
@@ -269,6 +296,40 @@ impl<'a> From<PathLike<'a>> for PathBuf {
             PathLike::Path(p) => p.to_path_buf(),
             PathLike::Buf(buf) => buf,
             PathLike::Parts(parts) => parts.iter().collect(),
+        }
+    }
+}
+
+// =============================================================================
+
+pub enum BytesLike<'a> {
+    Slice(&'a [u8]),
+    Vec(Vec<u8>),
+}
+
+impl<'a> From<Vec<u8>> for BytesLike<'a> {
+    fn from(v: Vec<u8>) -> Self {
+        BytesLike::Vec(v)
+    }
+}
+
+impl<'a> From<&'a Vec<u8>> for BytesLike<'a> {
+    fn from(v: &'a Vec<u8>) -> Self {
+        BytesLike::Slice(v)
+    }
+}
+
+impl<'a> From<&'a [u8]> for BytesLike<'a> {
+    fn from(v: &'a [u8]) -> Self {
+        BytesLike::Slice(v)
+    }
+}
+
+impl<'a> From<BytesLike<'a>> for Vec<u8> {
+    fn from(b: BytesLike<'a>) -> Self {
+        match b {
+            BytesLike::Slice(s) => s.to_vec(),
+            BytesLike::Vec(v) => v,
         }
     }
 }

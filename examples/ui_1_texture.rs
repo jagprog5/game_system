@@ -8,7 +8,7 @@ use game_system::{
             length::{MaxLen, MaxLenPolicy, MinLen, MinLenPolicy},
         },
         widget::horizontal_layout::HorizontalLayout,
-        widget::{gui_loop, texture::Texture, update_gui, HandlerReturnValue, Widget},
+        widget::{gui_loop, image_display::ImageDisplay, update_gui, HandlerReturnValue, Widget},
     },
 };
 
@@ -37,10 +37,10 @@ fn do_example<T: game_system::core::System>(
         false,
     )?;
 
-    let mut texture0 = Texture::new(image_path.clone());
-    let mut texture1 = Texture::new(image_path.clone());
-    let mut texture2 = Texture::new(image_path.clone());
-    let mut texture3 = Texture::new(image_path);
+    let mut texture0 = ImageDisplay::new(image_path.clone());
+    let mut texture1 = ImageDisplay::new(image_path.clone());
+    let mut texture2 = ImageDisplay::new(image_path.clone());
+    let mut texture3 = ImageDisplay::new(image_path);
 
     texture0.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
     texture0.request_aspect_ratio = false;

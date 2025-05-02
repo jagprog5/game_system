@@ -14,7 +14,7 @@ use crate::{
 use super::{sizing::CustomSizing, Widget, WidgetUpdateEvent};
 
 #[derive(Clone)]
-pub struct TiledTexture {
+pub struct TiledImageDisplay {
     /// background texture and source area - it will be tiled to fill the
     /// available space
     pub background: (PathBuf, TextureSource),
@@ -36,7 +36,7 @@ pub struct TiledTexture {
     background_draw_pos: FRect,
 }
 
-impl TiledTexture {
+impl TiledImageDisplay {
     pub fn new<'a, P: Into<PathLike<'a>>>(background: (P, TextureSource)) -> Self {
         let p: PathLike = background.0.into();
         let p: PathBuf = p.into();
@@ -48,7 +48,7 @@ impl TiledTexture {
     }
 }
 
-impl<T: crate::core::System> Widget<T> for TiledTexture {
+impl<T: crate::core::System> Widget<T> for TiledImageDisplay {
     fn update(&mut self, event: WidgetUpdateEvent, _sys_interface: &mut T) -> Result<bool, String> {
         self.background_draw_pos = event.position;
         Ok(false)
@@ -61,7 +61,7 @@ impl<T: crate::core::System> Widget<T> for TiledTexture {
             let pos_width = pos.w.get() as i32;
             let pos_height = pos.h.get() as i32;
 
-            let mut txt = sys_interface.texture(txt_path)?;
+            let mut txt = sys_interface.image(txt_path)?;
 
             let txt_size_safe = match maybe_txt_src {
                 TextureSource::WholeTexture => txt.size()?,

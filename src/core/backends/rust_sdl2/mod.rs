@@ -4,6 +4,7 @@ mod texture_key;
 
 use std::{
     collections::BTreeMap,
+    ffi::{c_int, c_void},
     num::{NonZeroU16, NonZeroU32},
     path::{Path, PathBuf},
     rc::Rc,
@@ -15,13 +16,14 @@ use font::Font;
 use lru::LruCache;
 use math::capped_next_power_of_two;
 use sdl2::{
+    get_error,
     image::{LoadTexture, Sdl2ImageContext},
     mixer::{Channel, Chunk, Music, Sdl2MixerContext},
     mouse::MouseButton,
+    pixels,
     rect::Rect,
     render::{Canvas, TextureCreator},
     rwops::RWops,
-    surface::Surface,
     sys::mixer::MIX_MAX_VOLUME,
     ttf::Sdl2TtfContext,
     video::{Window, WindowContext},
@@ -30,10 +32,10 @@ use sdl2::{
 use texture_key::TextureKey;
 
 use crate::core::{
-    color::Color,
+    color::{Color, ColorPacked, Surface},
     event::MouseWheelEvent,
-    texture_rect::{TextureDestinationF, TextureSource, TextureSourceF},
-    Event, NonEmptyStr, PathLike, System, TextureDestination,
+    texture_rect::{TextureDestinationF, TextureRect, TextureSource, TextureSourceF},
+    BytesLike, Event, NonEmptyStr, PathLike, System, TextureDestination,
 };
 
 /// there's only one sdl mixer music callback globally which accepts a function
@@ -137,7 +139,7 @@ impl Drop for RustSDL2System {
 }
 
 pub struct TextureHandle<'sys> {
-    txt: &'sys mut sdl2::render::Texture,
+    txt: &'sys sdl2::render::Texture,
     sys: &'sys mut RustSDL2SystemOtherMembers,
 }
 
@@ -245,6 +247,86 @@ impl<'sys> crate::core::TextureHandle<'sys> for TextureHandle<'sys> {
         };
 
         ret
+    }
+
+    fn pixels<Src>(&mut self, src: Src) -> Result<Surface, String>
+    where
+        Src: Into<TextureSource>,
+    {
+        // the textures in the cache are all static texture. can't read data
+        // directly
+
+        // first, create a render target texture and send the data to that instead
+        let src: TextureSource = src.into();
+        let src = match src {
+            TextureSource::WholeTexture => {
+                let size = self.size()?;
+                TextureRect {
+                    x: 0,
+                    y: 0,
+                    w: size.0,
+                    h: size.1,
+                }
+            },
+            TextureSource::Area(texture_rect) => texture_rect,
+        };
+
+        let output_width = src.w; // prevents NonZeroU32 cast below
+
+        let src = sdl2::rect::Rect::new(src.x, src.y, src.w.into(), src.h.into());
+
+        let mut target_texture = self
+            .sys
+            .creator
+            .create_texture_target(pixels::PixelFormatEnum::RGBA32, src.width(), src.height())
+            .map(|txt| TextureWrapper(txt))
+            .map_err(|e| e.to_string())?; // safety - immediately put in wrapper
+
+        let mut result: Result<Surface, String> = Err(Default::default());
+
+        self.sys
+            .canvas
+            .with_texture_canvas(&mut target_texture.0, |canvas| {
+                result = (|| -> Result<Surface, String> {
+                    // second. draw the static texture to this temp texture
+                    canvas.copy(&self.txt, src, None)?;
+                    // last, read the data on this temp texture
+
+                    // modified from (MIT):
+                    // https://github.com/Rust-SDL2/rust-sdl2/blob/ecd03de215f2db2940efa3e902557e8316fdff4e/src/sdl2/render.rs#L1791
+                    let (actual_rect, w, h) =
+                        (src.raw(), src.width() as usize, src.height() as usize);
+
+                    let pitch_bytes = w * pixels::PixelFormatEnum::RGBA32.byte_size_per_pixel(); // calculated pitch
+                    let size_bytes = pixels::PixelFormatEnum::RGBA32.byte_size_of_pixels(w * h);
+                    let size_elements = size_bytes / std::mem::size_of::<ColorPacked>();
+
+                    let mut pixels = Vec::<ColorPacked>::with_capacity(size_elements);
+
+                    let ret = unsafe {
+                        sdl2::sys::SDL_RenderReadPixels(
+                            canvas.raw(),
+                            actual_rect,
+                            pixels::PixelFormatEnum::RGBA32 as u32,
+                            pixels.as_mut_ptr() as *mut c_void,
+                            pitch_bytes as c_int,
+                        )
+                    };
+
+                    if ret == 0 {
+                        unsafe { pixels.set_len(size_elements) };
+                        Ok(Surface {
+                            width: output_width,
+                            data: pixels,
+                        })
+                    } else {
+                        Err(get_error())
+                    }
+                })();
+            })
+            .map_err(|e| e.to_string())?;
+
+        result
     }
 }
 
@@ -397,20 +479,16 @@ impl System for RustSDL2System {
         Ok((width, height))
     }
 
-    fn texture<'a, 's, P>(
-        &'s mut self,
-        image_path: P,
-    ) -> Result<Self::ImageTextureHandle<'s>, String>
+    fn image<'a, P>(&mut self, image_path: P) -> Result<Self::ImageTextureHandle<'_>, String>
     where
         P: Into<PathLike<'a>>,
-        's: 'a,
     {
         let image_path: PathLike = image_path.into();
         let mut maybe_buf: Option<PathBuf> = None;
         let image_path = image_path.get_path(&mut maybe_buf);
         let texture_key = TextureKey::from_path(image_path);
 
-        let txt = self.texture_cache.try_get_or_insert_mut_ref(
+        let txt = self.texture_cache.try_get_or_insert_ref(
             &texture_key,
             || -> Result<TextureWrapper, String> {
                 self.s
@@ -426,7 +504,7 @@ impl System for RustSDL2System {
         )?;
 
         Ok(TextureHandle {
-            txt: &mut txt.0,
+            txt: &txt.0,
             sys: &mut self.s,
         })
     }
@@ -484,7 +562,7 @@ impl System for RustSDL2System {
             None => TextureKey::from_rendered_text(text.0, color, point_size.get()),
         };
 
-        let txt = self.texture_cache.try_get_or_insert_mut_ref(
+        let txt = self.texture_cache.try_get_or_insert_ref(
             &texture_key,
             || -> Result<TextureWrapper, String> {
                 // must recreate the texture as it is not in the cache.
@@ -520,7 +598,83 @@ impl System for RustSDL2System {
         )?;
 
         Ok(TextureHandle {
-            txt: &mut txt.0,
+            txt: &txt.0,
+            sys: &mut self.s,
+        })
+    }
+
+    fn pixels<'a, K, G>(
+        &mut self,
+        key: K,
+        generation_function: G,
+    ) -> Result<Self::ImageTextureHandle<'_>, String>
+    where
+        K: Into<BytesLike<'a>>,
+        G: Fn(&mut Self) -> Result<Surface, String>,
+    {
+        let key: Vec<u8> = key.into().into();
+        let key = TextureKey::from_user_defined_key(key);
+
+        // SAFETY: sidestep borrow checker limitation via raw pointer
+        // (non-polonius). safe because return immediately, so no aliasing
+        // occurs.
+        let raw_self: *mut Self = self;
+
+        if let Some(txt) = unsafe { (*raw_self).texture_cache.get(&key) } {
+            let txt_ptr = &txt.0;
+            let sys_ptr = unsafe { &mut (*raw_self).s };
+
+            // raw_self is returned - no overlapping borrow with below
+            return Ok(TextureHandle {
+                txt: txt_ptr,
+                sys: sys_ptr,
+            });
+        }
+
+        // raw_self was returned - no overlapping borrow with above
+        let mut surface = generation_function(self)?;
+        if surface.data.len() == 0 {
+            return Err("generated surface was empty".to_owned());
+        }
+
+        if surface.data.len() as u32 % surface.width != 0 {
+            return Err("generated surface has incorrect width".to_owned());
+        }
+
+        let width = surface.width.get();
+        let height = (surface.data.len() / width as usize) as u32;
+
+        let surface = sdl2::surface::Surface::from_data(
+            surface.as_mut_bytes(),
+            width,
+            height,
+            width * std::mem::size_of::<ColorPacked>() as u32,
+            sdl2::pixels::PixelFormatEnum::RGBA32,
+        )?;
+
+        let txt = self
+            .s
+            .creator
+            .create_texture_from_surface(surface)
+            .map(|txt| TextureWrapper(txt))
+            .map_err(|e| e.to_string())?; // safety - immediately put in wrapper
+
+        let mut must_be_true = false;
+        let txt = self.texture_cache.get_or_insert(key, || {
+            must_be_true = true;
+            txt
+        });
+
+        if !must_be_true {
+            // it was not in the cache above, but now it is here? the only time
+            // this could change is inside the generation function. perhaps
+            // generate recursed? not ok. should always be generated from
+            // something else
+            return Err("generated surface recursed".to_owned());
+        }
+
+        Ok(TextureHandle {
+            txt: &txt.0,
             sys: &mut self.s,
         })
     }
@@ -800,7 +954,8 @@ impl RustSDL2System {
                 // recreate the texture since it's not in the cache
                 ret = true;
                 let mut surface =
-                    Surface::new(1, 1, sdl2::pixels::PixelFormatEnum::ARGB8888).unwrap();
+                    sdl2::surface::Surface::new(1, 1, sdl2::pixels::PixelFormatEnum::RGBA32)
+                        .unwrap();
                 surface.with_lock_mut(|buffer| {
                     buffer[0] = 0xFF;
                     buffer[1] = 0xFF;

@@ -12,8 +12,8 @@ use game_system::{
         widget::{
             gui_loop,
             horizontal_layout::HorizontalLayout,
+            image_display::ImageDisplay,
             strut::Strut,
-            texture::Texture,
             update_gui,
             vertical_layout::{MajorAxisMaxLenPolicy, VerticalLayout},
             HandlerReturnValue, Widget,
@@ -47,7 +47,7 @@ fn do_example<T: game_system::core::System>(
     gui_loop(DELAY, &mut system, |system, events, dt| {
         // constructs the whole GUI each frame. other examples don't bother
         // doing this, but it's key to claiming it's a "immediate mode" gui.
-        let mut horizontal_0 = Texture::new(&["examples", "assets", "test.jpg"][..]);
+        let mut horizontal_0 = ImageDisplay::new(&["examples", "assets", "test.jpg"][..]);
         horizontal_0.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
         horizontal_0.request_aspect_ratio = false;
         // horizontal_0.
@@ -56,7 +56,7 @@ fn do_example<T: game_system::core::System>(
         horizontal_0.max_h_policy = MaxLenPolicy::Literal((HEIGHT - 20.).into());
         horizontal_0.max_w_policy = MaxLenPolicy::Literal((WIDTH / 5.).into());
 
-        let mut horizontal_1 = Texture::new(image_path.clone());
+        let mut horizontal_1 = ImageDisplay::new(image_path.clone());
         horizontal_1.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
         horizontal_1.request_aspect_ratio = false;
         horizontal_1.min_h_policy = MinLenPolicy::Literal((HEIGHT - 20.).into());
@@ -66,7 +66,7 @@ fn do_example<T: game_system::core::System>(
         horizontal_1.max_h_fail_policy = MaxLenFailPolicy::POSITIVE;
         horizontal_1.min_h_fail_policy = MinLenFailPolicy::POSITIVE;
 
-        let mut horizontal_2 = Texture::new(image_path.clone());
+        let mut horizontal_2 = ImageDisplay::new(image_path.clone());
         horizontal_2.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
         horizontal_2.request_aspect_ratio = false;
         horizontal_2.min_h_policy = MinLenPolicy::Literal((HEIGHT - 20.).into());
@@ -78,7 +78,7 @@ fn do_example<T: game_system::core::System>(
 
         let horizontal_3 = Strut::new((0.0.into(), 0.0.into()), (20.0.into(), 0.0.into()));
 
-        let mut v_elem_0 = Texture::new(image_path.clone());
+        let mut v_elem_0 = ImageDisplay::new(image_path.clone());
         v_elem_0.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
         v_elem_0.request_aspect_ratio = false;
         v_elem_0.min_h_policy = MinLenPolicy::Literal((HEIGHT / 4.).into());
@@ -87,7 +87,7 @@ fn do_example<T: game_system::core::System>(
         v_elem_0.max_w_policy = MaxLenPolicy::Literal(MaxLen::LAX);
         v_elem_0.pref_h = 0.5.into();
 
-        let mut v_elem_1 = Texture::new(image_path.clone());
+        let mut v_elem_1 = ImageDisplay::new(image_path.clone());
         v_elem_1.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
         v_elem_1.request_aspect_ratio = false;
         v_elem_1.min_h_policy = MinLenPolicy::Literal((HEIGHT / 4.).into());
@@ -96,7 +96,7 @@ fn do_example<T: game_system::core::System>(
         v_elem_1.max_w_policy = MaxLenPolicy::Literal(MaxLen::LAX);
         v_elem_1.pref_h = 0.5.into();
 
-        let mut v_elem_2 = Texture::new(image_path.clone());
+        let mut v_elem_2 = ImageDisplay::new(image_path.clone());
         v_elem_2.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
         v_elem_2.request_aspect_ratio = false;
         v_elem_2.min_h_policy = MinLenPolicy::Literal((HEIGHT / 4.).into());
@@ -113,7 +113,7 @@ fn do_example<T: game_system::core::System>(
         horizontal_4.elems.push(Box::new(v_elem_1));
         horizontal_4.elems.push(Box::new(v_elem_2));
 
-        let mut v_elem_0 = Texture::new(image_path.clone());
+        let mut v_elem_0 = ImageDisplay::new(image_path.clone());
         v_elem_0.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
         v_elem_0.request_aspect_ratio = false;
         v_elem_0.min_h_policy = MinLenPolicy::Literal((HEIGHT / 4.).into());
@@ -122,7 +122,7 @@ fn do_example<T: game_system::core::System>(
         v_elem_0.max_w_policy = MaxLenPolicy::Literal(MaxLen::LAX);
         v_elem_0.pref_h = 0.5.into();
 
-        let mut v_elem_1 = Texture::new(image_path.clone());
+        let mut v_elem_1 = ImageDisplay::new(image_path.clone());
         v_elem_1.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
         v_elem_1.request_aspect_ratio = false;
         v_elem_1.min_h_policy = MinLenPolicy::Literal((HEIGHT / 4.).into());
@@ -131,7 +131,7 @@ fn do_example<T: game_system::core::System>(
         v_elem_1.max_w_policy = MaxLenPolicy::Literal(MaxLen::LAX);
         v_elem_1.pref_h = 0.5.into();
 
-        let mut v_elem_2 = Texture::new(image_path.clone());
+        let mut v_elem_2 = ImageDisplay::new(image_path.clone());
         v_elem_2.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
         v_elem_2.request_aspect_ratio = false;
         v_elem_2.min_h_policy = MinLenPolicy::Literal((HEIGHT / 4.).into());

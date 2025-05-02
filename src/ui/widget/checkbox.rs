@@ -142,7 +142,7 @@ impl<'state, T: crate::core::System> Widget<T> for CheckBox<'state> {
             None => return Ok(()),
         };
 
-        let mut txt = sys_interface.texture(&self.texture_path)?;
+        let mut txt = sys_interface.image(&self.texture_path)?;
 
         let src = if self.checked.get() {
             if self.hovered {

@@ -1,8 +1,8 @@
+pub mod image_display;
 pub mod strut;
-pub mod texture;
 
 pub mod border;
-pub mod tiled_texture;
+pub mod tiled_image_display;
 
 pub mod multi_line_label;
 pub mod single_line_label;

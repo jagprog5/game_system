@@ -232,7 +232,7 @@ impl<'b, T: crate::core::System> Widget<T> for Border<'b, T> {
             let t_border_width = border_width as i32 * if self.top { 1 } else { 0 };
             let b_border_width = border_width as i32 * if self.bottom { 1 } else { 0 };
 
-            let mut txt = sys_interface.texture(&self.texture_path)?;
+            let mut txt = sys_interface.image(&self.texture_path)?;
             if self.top {
                 let mut x_offset = pos.x + l_border_width;
                 let mut top_amount_left = pos

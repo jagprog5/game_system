@@ -9,7 +9,7 @@ use game_system::{
             checkbox::CheckBox,
             gui_loop,
             sizing::{CustomSizing, NestedContentSizing},
-            tiled_texture::TiledTexture,
+            tiled_image_display::TiledImageDisplay,
             update_gui, HandlerReturnValue, Widget,
         },
     },
@@ -83,7 +83,7 @@ fn do_example<T: game_system::core::System>(
 
     let mut background = Background::new(
         Box::new(checkbox),
-        Box::new(TiledTexture::new((
+        Box::new(TiledImageDisplay::new((
             background_path,
             TextureRect {
                 x: 0,

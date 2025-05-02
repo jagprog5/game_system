@@ -18,7 +18,7 @@ use crate::{
 use super::{Widget, WidgetUpdateEvent};
 
 #[derive(Clone)]
-pub struct Texture {
+pub struct ImageDisplay {
     pub texture_path: PathBuf,
     pub texture_src: TextureSource,
 
@@ -44,11 +44,11 @@ pub struct Texture {
     draw_pos: crate::ui::util::rect::FRect,
 }
 
-impl Texture {
+impl ImageDisplay {
     pub fn new<'a, P: Into<PathLike<'a>>>(texture_path: P) -> Self {
         let texture_path: PathLike = texture_path.into();
         let texture_path: PathBuf = texture_path.into();
-        Texture {
+        ImageDisplay {
             texture_path: texture_path.to_path_buf(),
             texture_src: Default::default(),
             aspect_ratio_fail_policy: Default::default(),
@@ -69,7 +69,7 @@ impl Texture {
     }
 }
 
-impl<T: crate::core::System> Widget<T> for Texture {
+impl<T: crate::core::System> Widget<T> for ImageDisplay {
     fn preferred_ratio_exceed_parent(&self) -> bool {
         self.preferred_ratio_exceed_parent
     }
@@ -83,7 +83,7 @@ impl<T: crate::core::System> Widget<T> for Texture {
 
         let size = match self.texture_src {
             TextureSource::WholeTexture => {
-                let texture = sys_interface.texture(&self.texture_path)?;
+                let texture = sys_interface.image(&self.texture_path)?;
                 crate::core::TextureHandle::size(&texture)?
             }
             TextureSource::Area(texture_area) => texture_area.size(),
@@ -116,7 +116,7 @@ impl<T: crate::core::System> Widget<T> for Texture {
         }
         let size = match self.texture_src {
             TextureSource::WholeTexture => {
-                let texture = sys_interface.texture(&self.texture_path)?;
+                let texture = sys_interface.image(&self.texture_path)?;
                 crate::core::TextureHandle::size(&texture)?
             }
             TextureSource::Area(texture_area) => texture_area.size(),
@@ -157,7 +157,7 @@ impl<T: crate::core::System> Widget<T> for Texture {
         Some(|| -> Result<f32, String> {
             let size = match self.texture_src {
                 TextureSource::WholeTexture => {
-                    let texture = sys_interface.texture(&self.texture_path)?;
+                    let texture = sys_interface.image(&self.texture_path)?;
                     crate::core::TextureHandle::size(&texture)?
                 }
                 TextureSource::Area(texture_area) => texture_area.size(),
@@ -182,7 +182,7 @@ impl<T: crate::core::System> Widget<T> for Texture {
         Some(|| -> Result<f32, String> {
             let size = match self.texture_src {
                 TextureSource::WholeTexture => {
-                    let texture = sys_interface.texture(&self.texture_path)?;
+                    let texture = sys_interface.image(&self.texture_path)?;
                     crate::core::TextureHandle::size(&texture)?
                 }
                 TextureSource::Area(texture_area) => texture_area.size(),
@@ -201,7 +201,7 @@ impl<T: crate::core::System> Widget<T> for Texture {
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {
-        let mut texture = sys_interface.texture(&self.texture_path)?;
+        let mut texture = sys_interface.image(&self.texture_path)?;
 
         let src = match self.texture_src {
             TextureSource::WholeTexture => {

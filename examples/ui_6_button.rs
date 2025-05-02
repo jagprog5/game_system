@@ -14,7 +14,7 @@ use game_system::{
             scroller::{DragState, Scroller},
             single_line_label::SingleLineLabel,
             sizing::{CustomSizing, NestedContentSizing},
-            tiled_texture::TiledTexture,
+            tiled_image_display::TiledImageDisplay,
             update_gui, HandlerReturnValue, Widget,
         },
     },
@@ -75,7 +75,7 @@ fn do_example<T: game_system::core::System>(
 
     let background = Background::new(
         Box::new(button),
-        Box::new(TiledTexture::new((
+        Box::new(TiledImageDisplay::new((
             background_path.clone(),
             TextureRect {
                 x: 0,
@@ -120,12 +120,7 @@ fn do_example<T: game_system::core::System>(
     let scroll_y = Cell::new(0i32);
 
     // put the text in a vertical scroller
-    let mut scroller = Scroller::new(
-        Box::new(text),
-        None,
-        Some(&scroll_y),
-        &drag_state,
-    );
+    let mut scroller = Scroller::new(Box::new(text), None, Some(&scroll_y), &drag_state);
     // scroller.lock_small_content_y = None;
     scroller.sizing = NestedContentSizing::Custom(Default::default());
 
@@ -139,7 +134,7 @@ fn do_example<T: game_system::core::System>(
 
     let mut background = Background::new(
         Box::new(layout),
-        Box::new(TiledTexture::new((
+        Box::new(TiledImageDisplay::new((
             background_path,
             TextureRect {
                 x: 0,

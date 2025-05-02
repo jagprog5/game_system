@@ -8,7 +8,8 @@ use game_system::{
             length::{MaxLen, MaxLenPolicy, MinLen, MinLenPolicy, PreferredPortion},
         },
         widget::{
-            border::Border, gui_loop, texture::Texture, update_gui, HandlerReturnValue, Widget,
+            border::Border, gui_loop, image_display::ImageDisplay, update_gui, HandlerReturnValue,
+            Widget,
         },
     },
 };
@@ -40,7 +41,7 @@ fn do_example<T: game_system::core::System>(
         false,
     )?;
 
-    let mut texture_widget = Texture::new(image_path);
+    let mut texture_widget = ImageDisplay::new(image_path);
     texture_widget.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
     texture_widget.request_aspect_ratio = false;
     texture_widget.pref_w = PreferredPortion(0.5);

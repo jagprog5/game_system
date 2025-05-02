@@ -1,11 +1,10 @@
 // test script that moves through the functionality of a thing
 
-use std::time::Instant;
 use std::{num::NonZero, path::Path, time::Duration};
 
 use game_system::core::color::Color;
 use game_system::core::event::Event;
-use game_system::core::texture_rect::{TextureDestination, TextureRect};
+use game_system::core::texture_rect::{TextureDestination, TextureRect, TextureSource};
 use game_system::core::{LoopingSoundHandle, TextureHandle};
 
 fn do_test<T: game_system::core::System>(font_file_content: &'static [u8]) -> Result<(), String> {
@@ -25,7 +24,13 @@ fn do_test<T: game_system::core::System>(font_file_content: &'static [u8]) -> Re
 
     let window_size = system.size()?;
     {
-        let mut test_texture = system.texture(&["assets", "test.jpg"][..])?;
+        let mut test_texture = system.pixels(vec![], |system| {
+            let mut base_texture = system.image(&["assets", "test.jpg"][..])?;
+            let mut data = base_texture.pixels(TextureSource::WholeTexture)?;
+            data.data.last_mut().unwrap().r = 255;
+            Ok(data)
+        })?;
+
         let test_texture_size = test_texture.size()?;
 
         // top right, copy with no rotation and simple scaling
@@ -177,7 +182,7 @@ fn do_test<T: game_system::core::System>(font_file_content: &'static [u8]) -> Re
     system.stop_music(Some(Duration::from_millis(250)))?;
 
     loop {
-        let before = Instant::now();
+        // let before = Instant::now();
         let maybe_event = system.event_timeout(Duration::from_millis(17));
         match maybe_event {
             None => {}
@@ -194,11 +199,11 @@ fn do_test<T: game_system::core::System>(font_file_content: &'static [u8]) -> Re
                 }
             }
         }
-        println!(
-            "{} {:?}",
-            (Instant::now() - before).as_millis(),
-            maybe_event
-        );
+        // println!(
+        //     "{} {:?}",
+        //     (Instant::now() - before).as_millis(),
+        //     maybe_event
+        // );
     }
 
     Ok(())
