@@ -39,7 +39,7 @@ fn do_example<T: game_system::core::System>(
 
     let top_label_text = Cell::new("hello".to_owned());
 
-    let mut top_label = SingleLineLabel::new::<T>(CellRefOrCell::Ref(&top_label_text));
+    let mut top_label = SingleLineLabel::new(CellRefOrCell::Ref(&top_label_text));
 
     top_label.min_h_fail_policy = MinLenFailPolicy::NEGATIVE; // go up if too small
     top_label.min_h = MinLen(50.); // for testing
@@ -51,16 +51,16 @@ fn do_example<T: game_system::core::System>(
 
     // ====================== MIDDLE LABEL =====================================
 
-    let mut middle_label = SingleLineLabel::new::<T>("the quick brown fox".into());
+    let mut middle_label = SingleLineLabel::new("the quick brown fox".into());
     middle_label.request_aspect_ratio = false;
 
     // ======================== BOTTOM LABELS ==================================
 
     let bottom_left_label =
-        SingleLineLabel::new::<T>(CellRefOrCell::from(Cell::new("horizontal".to_owned())));
+        SingleLineLabel::new(CellRefOrCell::from(Cell::new("horizontal".to_owned())));
 
     let mut bottom_right_label =
-        SingleLineLabel::new::<T>(CellRefOrCell::from(Cell::new("horizontal2q|".to_owned())));
+        SingleLineLabel::new(CellRefOrCell::from(Cell::new("horizontal2q|".to_owned())));
     bottom_right_label.min_h_fail_policy = MinLenFailPolicy::NEGATIVE;
     bottom_right_label.min_h = MinLen(50.); // for testing
     bottom_right_label.max_h = MaxLen(100.);

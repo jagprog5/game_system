@@ -45,7 +45,7 @@ pub struct SingleLineLabel<'state> {
 }
 
 impl<'state> SingleLineLabel<'state> {
-    pub fn new<T: crate::core::System>(text: CellRefOrCell<'state, String>) -> Self {
+    pub fn new(text: CellRefOrCell<'state, String>) -> Self {
         Self {
             text,
             color: Color {

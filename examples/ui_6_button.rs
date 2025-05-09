@@ -39,10 +39,10 @@ fn do_example<T: game_system::core::System>(
 
     let button_release = Cell::new(false);
 
-    let idle = SingleLineLabel::new::<T>("idle".into());
-    let mut hovered = SingleLineLabel::new::<T>("hovered".into());
+    let idle = SingleLineLabel::new("idle".into());
+    let mut hovered = SingleLineLabel::new("hovered".into());
     hovered.max_h = MaxLen(40.);
-    let pressed = SingleLineLabel::new::<T>("pressed".into());
+    let pressed = SingleLineLabel::new("pressed".into());
 
     let button_sound_path = Path::new(".")
         .join("examples")

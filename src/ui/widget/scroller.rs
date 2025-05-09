@@ -35,7 +35,7 @@ pub static SCROLLER_DRAG_DEAD_ZONE_DEFAULT: u32 = 10;
 pub static SCROLLER_SCROLL_WHEEL_SENSITIVITY_DEFAULT: i32 = 20;
 
 // nested scrollers are not allowed:
-// 
+//
 // 1. the parent scroller must be updated before the children since the parent
 //    determines where the children will be placed - scrolling adjusts the
 //    position of the children
@@ -43,12 +43,12 @@ pub static SCROLLER_SCROLL_WHEEL_SENSITIVITY_DEFAULT: i32 = 20;
 //    consume events before the parent - the inner scroller should consume
 //    events (making it scroll instead of the parent) and to do that, it needs
 //    the events first
-// 
+//
 // A couple ways of solving this.
 // 1. satisfy requirement #1. in order:
 //     1. update the scroller, but in a way that ignores mouse rect regions
 //        which are reserved by the children
-//     2. update the children  
+//     2. update the children
 //    this solution complicates the overall widget interface, needs the child to
 //    somehow tell the parent that certain inputs should be ignored. and when
 //    doing this, the parent would need to do its layout logic to determine
@@ -63,7 +63,6 @@ pub static SCROLLER_SCROLL_WHEEL_SENSITIVITY_DEFAULT: i32 = 20;
 //    https://github.com/jagprog5/sdl-rust-ui/blob/7530baa7ae7b57f4514899cb2315274e390bc1a6/src/layout/scroller.rs#L615
 //
 // neither of these solutions are good / overall worth it. in lieu of this,
-// nested scrollers are not allowed.
 
 /// translates its content - facilitates scrolling. also applies clipping rect
 /// to contained content
@@ -76,6 +75,7 @@ pub static SCROLLER_SCROLL_WHEEL_SENSITIVITY_DEFAULT: i32 = 20;
 /// it is the responsibility of the contained widget to filter out mouse events
 /// which are not within the sdl clipping rectangle (which is set for both draw,
 /// as well as update, for convenience)
+///
 pub struct Scroller<'b, 'scroll_state, T: crate::core::System> {
     /// manhattan distance that the mouse must travel before it's considered a
     /// click and drag scroll
@@ -309,11 +309,7 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
         };
 
         // handle click and drag scroll
-        for e in event
-            .events
-            .iter_mut()
-            .filter(|e| e.available())
-        {
+        for e in event.events.iter_mut().filter(|e| e.available()) {
             match e.e {
                 crate::core::event::Event::MouseWheel(m) => {
                     if pos.contains_point((m.x, m.y))
@@ -374,7 +370,7 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
 
                     // LAST: if currently dragging then consume all mouse events
                     match self.drag_state.get() {
-                        DragState::Dragging(_) | DragState::DragStart(_) => {
+                        DragState::Dragging(_) => {
                             e.set_consumed();
                         }
                         _ => {}
