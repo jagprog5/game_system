@@ -34,6 +34,37 @@ pub enum ScrollAspectRatioDirectionPolicy {
 pub static SCROLLER_DRAG_DEAD_ZONE_DEFAULT: u32 = 10;
 pub static SCROLLER_SCROLL_WHEEL_SENSITIVITY_DEFAULT: i32 = 20;
 
+// nested scrollers are not allowed:
+// 
+// 1. the parent scroller must be updated before the children since the parent
+//    determines where the children will be placed - scrolling adjusts the
+//    position of the children
+// 2. the children must be updated before the parent since the children should
+//    consume events before the parent - the inner scroller should consume
+//    events (making it scroll instead of the parent) and to do that, it needs
+//    the events first
+// 
+// A couple ways of solving this.
+// 1. satisfy requirement #1. in order:
+//     1. update the scroller, but in a way that ignores mouse rect regions
+//        which are reserved by the children
+//     2. update the children  
+//    this solution complicates the overall widget interface, needs the child to
+//    somehow tell the parent that certain inputs should be ignored. and when
+//    doing this, the parent would need to do its layout logic to determine
+//    where the child is in the first place (which seems wasteful)
+// 2. satisfy requirement #2. in order:
+//      1. update the children
+//      2. update the scroller
+//      3. adjust the position of the children based on the new scroll values
+//    this solution complicates the overall widget interface (needs to expose
+//    adjusting the position). this is what I did in the first pass of the UI
+//    framework to allow nested scrollers:
+//    https://github.com/jagprog5/sdl-rust-ui/blob/7530baa7ae7b57f4514899cb2315274e390bc1a6/src/layout/scroller.rs#L615
+//
+// neither of these solutions are good / overall worth it. in lieu of this,
+// nested scrollers are not allowed.
+
 /// translates its content - facilitates scrolling. also applies clipping rect
 /// to contained content
 ///
@@ -277,20 +308,11 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
             }
         };
 
-        // the scroller might consume events. for example, if it is clicked and
-        // dragged as part of scrolling. setting the events to consumed happens
-        // after they are passed to the contained widget (otherwise the inside
-        // content would not be click-able)
-
-        let mut defer_consumed: Vec<bool> = Vec::new();
-        defer_consumed.resize(event.events.len(), false);
-
         // handle click and drag scroll
-        for (index, e) in event
+        for e in event
             .events
             .iter_mut()
-            .enumerate()
-            .filter(|(_index, e)| e.available())
+            .filter(|e| e.available())
         {
             match e.e {
                 crate::core::event::Event::MouseWheel(m) => {
@@ -353,7 +375,7 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
                     // LAST: if currently dragging then consume all mouse events
                     match self.drag_state.get() {
                         DragState::Dragging(_) | DragState::DragStart(_) => {
-                            defer_consumed[index] = true;
+                            e.set_consumed();
                         }
                         _ => {}
                     }
@@ -401,12 +423,6 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
         let mut event_for_contained = event.sub_event(self.position_for_contained_from_update);
         event_for_contained.clipping_rect = self.clipping_rect_for_contained_from_update;
         let ret = self.contained.update(event_for_contained, sys_interface)?;
-
-        for i in 0..defer_consumed.len() {
-            if defer_consumed[i] {
-                event.events[i].set_consumed();
-            }
-        }
 
         Ok(ret)
     }

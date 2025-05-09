@@ -71,9 +71,9 @@ pub trait System: Sized {
     ///
     /// set if font texture interpolation should occurs - the correct setting
     /// for this is situational. if a blocky font is used, interpolation should
-    /// be set to false (it will apply nearest neighbor sampling to retain
+    /// be set to false (it might apply nearest neighbor sampling to retain
     /// blocky-ness). but smooth looking fonts should have interpolation set to
-    /// true (it will apply some unspecified interpolation or smoothing)
+    /// true (it might apply some unspecified interpolation or smoothing)
     fn new(
         size: Option<(&str, NonZeroU32, NonZeroU32)>,
         font_file_data: &'static [u8],

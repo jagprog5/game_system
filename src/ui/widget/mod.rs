@@ -104,6 +104,7 @@ impl<'sdl> WidgetUpdateEvent<'sdl> {
     }
 }
 
+/// widgets form a hierarchy, and are updated and drawn in a top down way
 pub trait Widget<T: crate::core::System> {
     /// the widget will never have a width or height smaller than this width or
     /// height, respectively.
