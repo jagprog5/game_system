@@ -161,11 +161,11 @@ fn do_example<T: game_system::core::System>(
         let r = update_gui(&mut horizontal_layout, events, system, dt)?;
 
         // after gui update, use whatever events are left
-        for e in events.iter_mut().filter(|e| e.available()) {
-            match e.e {
+        for e in events.iter_mut().filter(|e| e.is_some()) {
+            match e.unwrap() {
                 game_system::core::event::Event::Mouse(mouse_event) => {
                     if mouse_event.down && mouse_event.changed {
-                        e.set_consumed(); // intentional redundant
+                        *e = None; // intentional redundant
                         println!(
                             "nothing consumed the click! {:?}",
                             (mouse_event.x, mouse_event.y)
@@ -175,12 +175,12 @@ fn do_example<T: game_system::core::System>(
                 game_system::core::event::Event::Key(key_event) => {
                     if key_event.key == 27 {
                         // esc
-                        e.set_consumed(); // intentional redundant
+                        *e = None; // intentional redundant
                         return Ok(HandlerReturnValue::Stop);
                     }
                 }
                 game_system::core::event::Event::Quit => {
-                    e.set_consumed(); // intentional redundant
+                    *e = None; // intentional redundant
                     return Ok(HandlerReturnValue::Stop);
                 }
                 _ => {}

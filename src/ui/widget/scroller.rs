@@ -309,8 +309,8 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
         };
 
         // handle click and drag scroll
-        for e in event.events.iter_mut().filter(|e| e.available()) {
-            match e.e {
+        for e in event.events.iter_mut().filter(|e| e.is_some()) {
+            match e.unwrap() {
                 crate::core::event::Event::MouseWheel(m) => {
                     if pos.contains_point((m.x, m.y))
                         && event.clipping_rect.contains_point((m.x, m.y))
@@ -331,7 +331,7 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
                         // events are consumed. but on the falling edge this
                         // should still happen (when about to not be dragging)
                         if let DragState::Dragging(_) = self.drag_state.get() {
-                            e.set_consumed();
+                            *e = None;
                         }
                         self.drag_state.set(DragState::None);
                         continue;
@@ -371,7 +371,7 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
                     // LAST: if currently dragging then consume all mouse events
                     match self.drag_state.get() {
                         DragState::Dragging(_) => {
-                            e.set_consumed();
+                            *e = None;
                         }
                         _ => {}
                     }

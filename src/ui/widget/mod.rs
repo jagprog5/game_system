@@ -33,34 +33,6 @@ use crate::{
 
 use super::util::rust::reborrow;
 
-#[derive(Debug)]
-pub struct UIEvent {
-    pub e: crate::core::event::Event,
-    /// two purposes:
-    ///  - used to indicate which events were not used by the UI and should be
-    ///    passed down to the rest of the application
-    ///  - used to ensure that a single widget uses an event
-    consumed: bool,
-}
-
-impl UIEvent {
-    pub fn consumed(&self) -> bool {
-        self.consumed
-    }
-
-    pub fn available(&self) -> bool {
-        !self.consumed()
-    }
-
-    pub fn set_consumed(&mut self) {
-        self.consumed = true;
-    }
-
-    pub fn new(e: crate::core::event::Event) -> Self {
-        Self { e, consumed: false }
-    }
-}
-
 pub struct WidgetUpdateEvent<'sdl> {
     /// given the sizing information that was obtained from the widget (min,
     /// max, etc), a position for this widget has been determined. this is where
@@ -74,12 +46,32 @@ pub struct WidgetUpdateEvent<'sdl> {
     /// button which is scrolled outside of a scroller bounds will no longer be
     /// inside the visible area and should not react to user input).
     pub clipping_rect: ClippingRect,
-    /// in the context of where this widget is in the GUI, does the width or the
-    /// height have priority in regard to enforcing an aspect ratio. one length
-    /// is figured out first, the the other is calculated based on the first
-    pub aspect_ratio_direction: AspectRatioPreferredDirection,
-    /// handle all events from sdl. contains events in order of occurrence
-    pub events: &'sdl mut [UIEvent],
+    /// handle all events from backend. contains events in order of occurrence
+    ///
+    /// set to None to consume an event, meaning that other widgets will not be
+    /// able to use it. secondary purpose: events which are not used by the UI
+    /// are passed down to the rest of the application.
+    ///
+    /// for simplicity (and performance), the following iteration order is done:
+    ///
+    /// for each widget:  
+    ///     for each event:  
+    ///         widget.handle(event)
+    ///
+    /// but this is an approximation of what should be happening which works a
+    /// majority of the time. here is the ideal iteration order (which does not
+    /// happen):
+    ///
+    /// for each event:  
+    ///     for each widget:  
+    ///         widget.handle(event)
+    ///
+    /// there is a difference in the iteration order; each event should be fully
+    /// processed by everything before moving on to the next event. related:
+    /// https://youtu.be/JxI3Eu5DPwE?si=58H4XhTT2m7XgM3W&t=254
+    ///
+    /// this hasn't meaningfully come up yet but it's something to be mindful of
+    pub events: &'sdl mut [Option<crate::core::event::Event>],
     /// time since previous event, maybe zero if first event
     pub dt: Duration,
 }
@@ -93,7 +85,6 @@ impl<'sdl> WidgetUpdateEvent<'sdl> {
             // output lifetime is elided - it's the re-borrowed lifetime
             position,
             clipping_rect: self.clipping_rect,
-            aspect_ratio_direction: self.aspect_ratio_direction,
             events: reborrow(self.events),
             dt: self.dt,
         }
@@ -192,13 +183,11 @@ pub trait Widget<T: crate::core::System> {
 /// frame
 pub fn update_gui<'b, T: crate::core::System + 'b>(
     widget: &'b mut dyn Widget<T>,
-    events: &'b mut [UIEvent],
+    events: &'b mut [Option<crate::core::event::Event>],
     system: &mut T,
     dt: Duration,
 ) -> Result<bool, String> {
     let (w, h) = system.size()?;
-
-    let aspect_ratio_direction = AspectRatioPreferredDirection::default();
 
     let position = place(
         widget,
@@ -208,14 +197,13 @@ pub fn update_gui<'b, T: crate::core::System + 'b>(
             w: w.get() as f32,
             h: h.get() as f32,
         },
-        aspect_ratio_direction,
+        AspectRatioPreferredDirection::default(),
         system,
     )?;
 
     let widget_event = WidgetUpdateEvent {
         position,
         events,
-        aspect_ratio_direction: AspectRatioPreferredDirection::default(),
         clipping_rect: ClippingRect::None,
         dt,
     };
@@ -292,7 +280,6 @@ pub enum HandlerReturnValue {
     Stop,
 }
 
-/// a helper for the examples. but could do done in a variety of ways
 #[allow(dead_code)]
 pub fn gui_loop<T: System, F>(
     max_delay: Duration,
@@ -300,10 +287,14 @@ pub fn gui_loop<T: System, F>(
     mut handler: F,
 ) -> Result<(), String>
 where
-    F: FnMut(&mut T, &mut [UIEvent], Duration) -> Result<HandlerReturnValue, String>,
+    F: FnMut(
+        &mut T,
+        &mut [Option<crate::core::event::Event>],
+        Duration,
+    ) -> Result<HandlerReturnValue, String>,
 {
     // accumulate the events for this frame
-    let mut events_accumulator: Vec<UIEvent> = Vec::new();
+    let mut events_accumulator: Vec<Option<crate::core::event::Event>> = Vec::new();
 
     // use for dt calculation
     let mut previous_handle_call = Instant::now();
@@ -326,7 +317,7 @@ where
                     // wait up to forever for the first event of this frame to
                     // come in
                     let event = system_interface.event();
-                    events_accumulator.push(UIEvent::new(event));
+                    events_accumulator.push(Some(event));
                     Instant::now()
                 } else {
                     previous_handle_call
@@ -345,7 +336,7 @@ where
 
                     let time_to_wait = max_time - now;
                     if let Some(event) = system_interface.event_timeout(time_to_wait) {
-                        events_accumulator.push(UIEvent::new(event));
+                        events_accumulator.push(Some(event));
                     }
                 }
             }

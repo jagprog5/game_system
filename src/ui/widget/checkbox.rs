@@ -98,12 +98,12 @@ impl<'state, T: crate::core::System> Widget<T> for CheckBox<'state> {
             Some(v) => v,
             None => return Ok(false), // can't click or hover with zero area
         };
-        for e in event.events.iter_mut().filter(|e| e.available()) {
-            match e.e {
+        for e in event.events.iter_mut().filter(|e| e.is_some()) {
+            match e.unwrap() {
                 crate::core::event::Event::Key(key_event) => {
                     if let Some(hotkey) = self.hotkey {
                         if key_event.key == hotkey {
-                            e.set_consumed();
+                            *e = None;
                             if !key_event.down {
                                 // rising edge
                                 self.checked.set(!self.checked.get());
@@ -117,7 +117,7 @@ impl<'state, T: crate::core::System> Widget<T> for CheckBox<'state> {
                         && event.clipping_rect.contains_point((mouse.x, mouse.y))
                     {
                         if mouse.changed {
-                            e.set_consumed();
+                            *e = None;
                         }
                         self.hovered = true;
                         if !mouse.down && mouse.changed {

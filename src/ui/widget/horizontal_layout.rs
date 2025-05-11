@@ -304,14 +304,12 @@ impl<'b, T: crate::core::System> Widget<T> for HorizontalLayout<'b, T> {
                 elem.max_h_fail_policy(),
             ) + event.position.y;
 
-            let mut sub_event = event.sub_event(crate::ui::util::rect::FRect {
+            let sub_event = event.sub_event(crate::ui::util::rect::FRect {
                 x: x_pos,
                 y,
                 w: info.width,
                 h: height,
             });
-            sub_event.aspect_ratio_direction =
-                crate::ui::util::length::AspectRatioPreferredDirection::HeightFromWidth;
             let elem_request_another_frame = elem.update(sub_event, sys_interface)?;
             any_request_another_frame |= elem_request_another_frame;
             if !self.reverse {

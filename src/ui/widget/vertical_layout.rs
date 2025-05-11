@@ -327,14 +327,12 @@ impl<'b, T: crate::core::System> Widget<T> for VerticalLayout<'b, T> {
                 elem.max_w_fail_policy(),
             ) + event.position.x;
 
-            let mut sub_event = event.sub_event(crate::ui::util::rect::FRect {
+            let sub_event = event.sub_event(crate::ui::util::rect::FRect {
                 x,
                 y: y_pos,
                 w: width,
                 h: info.height,
             });
-            sub_event.aspect_ratio_direction =
-                crate::ui::util::length::AspectRatioPreferredDirection::WidthFromHeight;
             let elem_request_another_frame = elem.update(sub_event, sys_interface)?;
             any_request_another_frame |= elem_request_another_frame;
             if !self.reverse {

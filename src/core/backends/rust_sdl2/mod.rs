@@ -267,7 +267,7 @@ impl<'sys> crate::core::TextureHandle<'sys> for TextureHandle<'sys> {
                     w: size.0,
                     h: size.1,
                 }
-            },
+            }
             TextureSource::Area(texture_rect) => texture_rect,
         };
 
