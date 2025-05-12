@@ -11,6 +11,7 @@ lru = {version = "0.13.0", optional = true}
 typed_floats = "1.0.2"
 
 [features]
-default = [ "rust-sdl2" ]
+default = [ "rust-sdl2", "ui" ]
 rust-sdl2 = ["dep:sdl2", "sdl2/unsafe_textures", "sdl2/mixer", "sdl2/image", "sdl2/ttf", "dep:lru"]
 rust-sdl2-bundled = ["sdl2/bundled"]
+ui = []

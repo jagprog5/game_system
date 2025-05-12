@@ -280,7 +280,6 @@ pub enum HandlerReturnValue {
     Stop,
 }
 
-#[allow(dead_code)]
 pub fn gui_loop<T: System, F>(
     max_delay: Duration,
     system_interface: &mut T,

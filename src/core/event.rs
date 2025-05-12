@@ -35,6 +35,36 @@ pub struct KeyEvent {
     pub down: bool,
 }
 
+pub(crate) fn ascii_more_to_upper(i: u8) -> u8 {
+    match i {
+        b'a'..=b'z' => i - 32,
+        b'1' => b'!',
+        b'2' => b'@',
+        b'3' => b'#',
+        b'4' => b'$',
+        b'5' => b'%',
+        b'6' => b'^',
+        b'7' => b'&',
+        b'8' => b'*',
+        b'9' => b'(',
+        b'0' => b')',
+
+        b'-' => b'_',
+        b'=' => b'+',
+        b'[' => b'{',
+        b']' => b'}',
+        b'\\' => b'|',
+        b';' => b':',
+        b'\'' => b'"',
+        b',' => b'<',
+        b'.' => b'>',
+        b'/' => b'?',
+        b'`' => b'~',
+
+        _ => i,
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum Event {
     /// more variants might be added. this is a forward compatibility

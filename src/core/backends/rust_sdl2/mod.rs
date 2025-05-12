@@ -18,6 +18,7 @@ use math::capped_next_power_of_two;
 use sdl2::{
     get_error,
     image::{LoadTexture, Sdl2ImageContext},
+    keyboard::Mod,
     mixer::{Channel, Chunk, Music, Sdl2MixerContext},
     mouse::MouseButton,
     pixels,
@@ -33,7 +34,7 @@ use texture_key::TextureKey;
 
 use crate::core::{
     color::{Color, ColorPacked, Surface},
-    event::MouseWheelEvent,
+    event::{ascii_more_to_upper, MouseWheelEvent},
     texture_rect::{TextureDestinationF, TextureRect, TextureSource, TextureSourceF},
     BytesLike, Event, NonEmptyStr, PathLike, System, TextureDestination,
 };
@@ -1005,7 +1006,9 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
             }
             _ => {}
         },
-        sdl2::event::Event::KeyDown { keycode, .. } => {
+        sdl2::event::Event::KeyDown {
+            keycode, keymod, ..
+        } => {
             let keycode = match keycode {
                 Some(v) => {
                     let v: i32 = *v;
@@ -1014,13 +1017,19 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
                 None => None,
             };
             match keycode {
-                Some(key) => {
-                    return Some(Event::Key(crate::core::event::KeyEvent { key, down: true }))
+                Some(mut key) => {
+                    let shift_pressed = keymod.intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD);
+                    if shift_pressed {
+                        key = ascii_more_to_upper(key);
+                    }
+                    return Some(Event::Key(crate::core::event::KeyEvent { key, down: true }));
                 }
                 None => {}
             }
         }
-        sdl2::event::Event::KeyUp { keycode, .. } => {
+        sdl2::event::Event::KeyUp {
+            keycode, keymod, ..
+        } => {
             let keycode = match keycode {
                 Some(v) => {
                     let v: i32 = *v;
@@ -1029,11 +1038,15 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
                 None => None,
             };
             match keycode {
-                Some(key) => {
+                Some(mut key) => {
+                    let shift_pressed = keymod.intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD);
+                    if shift_pressed {
+                        key = ascii_more_to_upper(key);
+                    }
                     return Some(Event::Key(crate::core::event::KeyEvent {
                         key,
                         down: false,
-                    }))
+                    }));
                 }
                 None => {}
             }

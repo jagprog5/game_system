@@ -50,7 +50,7 @@ fn do_example<T: game_system::core::System>(
         .join("ui_test_sound.mp3");
 
     let mut button = Button::new(
-        Box::new(|| -> Result<bool, String> {
+        Box::new(|_sys: &mut T| -> Result<bool, String> {
             button_release.set(true);
             Ok(false)
         }),
