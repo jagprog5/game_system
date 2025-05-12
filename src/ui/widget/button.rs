@@ -37,7 +37,8 @@ pub enum ButtonInheritSizing {
 }
 
 pub struct Button<'b, 'state, T: crate::core::System + 'b> {
-    pub functionality: Box<dyn FnMut() -> Result<(), String> + 'state>,
+    /// gives overall return result for update. See Widget::update()
+    pub functionality: Box<dyn FnMut() -> Result<bool, String> + 'state>,
 
     pub idle: Box<dyn Widget<T> + 'b>,
     pub hovered: Box<dyn Widget<T> + 'b>,
@@ -57,8 +58,10 @@ pub struct Button<'b, 'state, T: crate::core::System + 'b> {
 }
 
 impl<'b, 'state, T: crate::core::System + 'b> Button<'b, 'state, T> {
+    /// functionality: gives overall return result for update. See
+    /// Widget::update()
     pub fn new(
-        functionality: Box<dyn FnMut() -> Result<(), String> + 'state>,
+        functionality: Box<dyn FnMut() -> Result<bool, String> + 'state>,
         idle: Box<dyn Widget<T> + 'b>,
         hovered: Box<dyn Widget<T> + 'b>,
         pressed: Box<dyn Widget<T> + 'b>,
@@ -163,6 +166,7 @@ impl<'b, 'state, T: crate::core::System + 'b> Widget<T> for Button<'b, 'state, T
             Some(v) => v,
             None => return Ok(false), // can't click or hover with zero area
         };
+        let mut ret = false;
         for e in event.events.iter_mut().filter(|e| e.is_some()) {
             match e.unwrap() {
                 crate::core::event::Event::Key(key_event) => {
@@ -175,7 +179,7 @@ impl<'b, 'state, T: crate::core::System + 'b> Widget<T> for Button<'b, 'state, T
                                 });
                             } else {
                                 // rising edge
-                                (self.functionality)()?;
+                                ret |= (self.functionality)()?;
                                 self.state.set(ButtonPrivateState {
                                     s: ButtonState::Idle,
                                 });
@@ -193,7 +197,7 @@ impl<'b, 'state, T: crate::core::System + 'b> Widget<T> for Button<'b, 'state, T
                         if !mouse.down {
                             if mouse.changed {
                                 // rising edge
-                                (self.functionality)()?;
+                                ret |= (self.functionality)()?;
                             }
                             self.state.set(ButtonPrivateState {
                                 s: ButtonState::Hovered,
@@ -214,7 +218,8 @@ impl<'b, 'state, T: crate::core::System + 'b> Widget<T> for Button<'b, 'state, T
         }
 
         let sizing = self.sizing;
-        sizing.update_contained(self.current_widget_mut(), &mut event, sys_interface)
+        ret |= sizing.update_contained(self.current_widget_mut(), &mut event, sys_interface)?;
+        Ok(ret)
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {

@@ -50,9 +50,9 @@ fn do_example<T: game_system::core::System>(
         .join("ui_test_sound.mp3");
 
     let mut button = Button::new(
-        Box::new(|| -> Result<(), String> {
+        Box::new(|| -> Result<bool, String> {
             button_release.set(true);
-            Ok(())
+            Ok(false)
         }),
         Box::new(idle),
         Box::new(hovered),
