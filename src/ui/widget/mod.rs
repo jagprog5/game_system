@@ -46,32 +46,13 @@ pub struct WidgetUpdateEvent<'sdl> {
     /// button which is scrolled outside of a scroller bounds will no longer be
     /// inside the visible area and should not react to user input).
     pub clipping_rect: ClippingRect,
-    /// handle all events from backend. contains events in order of occurrence
+    /// handle all events from backend
     ///
     /// set to None to consume an event, meaning that other widgets will not be
-    /// able to use it. secondary purpose: events which are not used by the UI
-    /// are passed down to the rest of the application.
-    ///
-    /// for simplicity (and performance), the following iteration order is done:
-    ///
-    /// for each widget:  
-    ///     for each event:  
-    ///         widget.handle(event)
-    ///
-    /// but this is an approximation of what should be happening which works a
-    /// majority of the time. here is the ideal iteration order (which does not
-    /// happen):
-    ///
-    /// for each event:  
-    ///     for each widget:  
-    ///         widget.handle(event)
-    ///
-    /// there is a difference in the iteration order; each event should be fully
-    /// processed by everything before moving on to the next event. related:
-    /// https://youtu.be/JxI3Eu5DPwE?si=58H4XhTT2m7XgM3W&t=254
-    ///
-    /// this hasn't meaningfully come up yet but it's something to be mindful of
-    pub events: &'sdl mut [Option<crate::core::event::Event>],
+    /// able to use it (this events ref is shown to all widgets in the
+    /// interface). secondary purpose: events which are not used by the UI are
+    /// passed down to the rest of the application.
+    pub events: &'sdl mut Option<crate::core::event::Event>,
     /// time since previous event, maybe zero if first event
     pub dt: Duration,
 }
@@ -183,7 +164,7 @@ pub trait Widget<T: crate::core::System> {
 /// frame
 pub fn update_gui<'b, T: crate::core::System + 'b>(
     widget: &'b mut dyn Widget<T>,
-    events: &'b mut [Option<crate::core::event::Event>],
+    events: &'b mut Option<crate::core::event::Event>,
     system: &mut T,
     dt: Duration,
 ) -> Result<bool, String> {
@@ -273,72 +254,83 @@ pub fn place<T: crate::core::System>(
 }
 
 pub enum HandlerReturnValue {
-    /// the next frame can wait a very long time for user input
+    /// the next draw can wait a very long time for user input
     DelayNextFrame,
-    /// the next frame should occur reasonably soon after this one
+    /// the next draw should occur reasonably soon after this one
     NextFrame,
+    /// stop the gui now. exits before any more updates or draws
     Stop,
 }
 
-pub fn gui_loop<T: System, F>(
-    max_delay: Duration,
+pub fn gui_loop<T: System, UpdateF, DrawF>(
+    delay: Duration,
     system_interface: &mut T,
-    mut handler: F,
+    mut update_handler: UpdateF,
+    mut draw_handler: DrawF,
 ) -> Result<(), String>
 where
-    F: FnMut(
+    UpdateF: FnMut(
         &mut T,
-        &mut [Option<crate::core::event::Event>],
+        Option<crate::core::event::Event>,
         Duration,
     ) -> Result<HandlerReturnValue, String>,
+    DrawF: FnMut(&mut T) -> Result<(), String>,
 {
-    // accumulate the events for this frame
-    let mut events_accumulator: Vec<Option<crate::core::event::Event>> = Vec::new();
+    // timestamp of just before the previous call to update. starts as now so
+    // that there is a very small (or zero) dt given to the first update call
+    //
+    // set to just before the previous call to update
+    let mut previous_update_call = Instant::now();
 
-    // use for dt calculation
-    let mut previous_handle_call = Instant::now();
+    // the next update call should happen at or before deadline. none if it can
+    // wait forever for events before calling update
+    //
+    // starts as Some(now) so that the first frame occurs right away
+    let mut deadline: Option<Instant> = Some(previous_update_call);
+
     loop {
-        let next_handle_draw_call = Instant::now();
-        let handle_result = handler(
-            system_interface,
-            &mut events_accumulator,
-            next_handle_draw_call - previous_handle_call,
-        )?;
-        previous_handle_call = next_handle_draw_call;
+        let frame_begin = Instant::now();
 
-        // handle events accumulation
-        events_accumulator.clear();
-
-        match handle_result {
-            HandlerReturnValue::Stop => return Ok(()),
-            HandlerReturnValue::DelayNextFrame | HandlerReturnValue::NextFrame => {
-                let oldest_event = if let HandlerReturnValue::DelayNextFrame = handle_result {
-                    // wait up to forever for the first event of this frame to
-                    // come in
-                    let event = system_interface.event();
-                    events_accumulator.push(Some(event));
-                    Instant::now()
-                } else {
-                    previous_handle_call
-                };
-
-                // don't send off the event immediately! wait a bit and
-                // accumulate several events to be processed together. max bound
-                // on waiting so that the first event received isn't too stale
-
-                loop {
-                    let max_time = oldest_event + max_delay;
+        let mut following_frame_quick = false;
+        // frame loop
+        loop {
+            // loop - update several times per draw
+            let event = match deadline {
+                Some(deadline) => {
                     let now = Instant::now();
-                    if max_time <= now {
-                        break; // can't wait any longer
-                    }
-
-                    let time_to_wait = max_time - now;
-                    if let Some(event) = system_interface.event_timeout(time_to_wait) {
-                        events_accumulator.push(Some(event));
+                    if now >= deadline {
+                        None
+                    } else {
+                        let duration = deadline - now;
+                        system_interface.event_timeout(duration)
                     }
                 }
+                None => Some(system_interface.event()),
+            };
+
+            let now = Instant::now();
+            // let deadline = deadline.get_or_insert(previous_update_call + delay);
+            let dt = now - previous_update_call;
+            previous_update_call = now;
+            following_frame_quick |= match update_handler(system_interface, event, dt)? {
+                HandlerReturnValue::Stop => return Ok(()),
+                HandlerReturnValue::DelayNextFrame => false,
+                HandlerReturnValue::NextFrame => true,
+            };
+
+            if event.is_none() {
+                break;
             }
-        };
+        }
+        draw_handler(system_interface)?;
+
+        match following_frame_quick {
+            true => {
+                deadline = Some(frame_begin + delay);
+            },
+            false => {
+                deadline = None;
+            },
+        }
     }
 }
