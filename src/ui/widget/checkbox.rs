@@ -94,16 +94,12 @@ impl<'state, T: crate::core::System> Widget<T> for CheckBox<'state> {
         self.changed.set(false);
         self.draw_pos = event.position;
 
-        let non_zero_area: TextureRect = match self.draw_pos.into() {
-            Some(v) => v,
-            None => return Ok(false), // can't click or hover with zero area
-        };
-        for e in event.events.iter_mut().filter(|e| e.is_some()) {
-            match e.unwrap() {
+        if let Some(e) = *event.event {
+            match e {
                 crate::core::event::Event::Key(key_event) => {
                     if let Some(hotkey) = self.hotkey {
                         if key_event.key == hotkey {
-                            *e = None;
+                            *event.event = None;
                             if !key_event.down {
                                 // rising edge
                                 self.checked.set(!self.checked.get());
@@ -113,25 +109,30 @@ impl<'state, T: crate::core::System> Widget<T> for CheckBox<'state> {
                     }
                 }
                 crate::core::event::Event::Mouse(mouse) => {
-                    if non_zero_area.contains_point((mouse.x, mouse.y))
-                        && event.clipping_rect.contains_point((mouse.x, mouse.y))
-                    {
-                        if mouse.changed {
-                            *e = None;
+                    let maybe_non_zero_texture_area: Option<TextureRect> = event.position.into();
+
+                    if let Some(non_zero_area) = maybe_non_zero_texture_area {
+                        if non_zero_area.contains_point((mouse.x, mouse.y))
+                            && event.clipping_rect.contains_point((mouse.x, mouse.y))
+                        {
+                            if mouse.changed {
+                                *event.event = None;
+                            }
+                            self.hovered = true;
+                            if !mouse.down && mouse.changed {
+                                // rising edge
+                                self.checked.set(!self.checked.get());
+                                self.changed.set(true);
+                            }
+                        } else {
+                            self.hovered = false;
                         }
-                        self.hovered = true;
-                        if !mouse.down && mouse.changed {
-                            // rising edge
-                            self.checked.set(!self.checked.get());
-                            self.changed.set(true);
-                        }
-                    } else {
-                        self.hovered = false;
                     }
                 }
                 _ => {}
             }
         }
+
         Ok(false)
     }
 

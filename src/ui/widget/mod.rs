@@ -34,10 +34,6 @@ use crate::{
 use super::util::rust::reborrow;
 
 pub struct WidgetUpdateEvent<'sdl> {
-    /// given the sizing information that was obtained from the widget (min,
-    /// max, etc), a position for this widget has been determined. this is where
-    /// the widget is at!
-    pub position: FRect,
     /// the clipping rect that will be used during draw
     ///
     /// WidgetUpdateEvent is used during the update phase for the UI (which
@@ -52,27 +48,18 @@ pub struct WidgetUpdateEvent<'sdl> {
     /// able to use it (this events ref is shown to all widgets in the
     /// interface). secondary purpose: events which are not used by the UI are
     /// passed down to the rest of the application.
-    pub events: &'sdl mut Option<crate::core::event::Event>,
-    /// time since previous event, maybe zero if first event
+    pub event: &'sdl mut Option<crate::core::event::Event>,
+    /// time since previous update, maybe zero if first event
     pub dt: Duration,
 }
 
 impl<'sdl> WidgetUpdateEvent<'sdl> {
-    /// create a new event, same as self, but with a different position.
-    /// intended to be passed to a layout's children
-    pub fn sub_event(&mut self, position: FRect) -> WidgetUpdateEvent<'_> {
+    pub fn dup(&mut self) -> WidgetUpdateEvent<'_> {
         WidgetUpdateEvent {
-            // do a re-borrow. create a mutable borrow of the mutable borrow
-            // output lifetime is elided - it's the re-borrowed lifetime
-            position,
             clipping_rect: self.clipping_rect,
-            events: reborrow(self.events),
+            event: reborrow(self.event),
             dt: self.dt,
         }
-    }
-
-    pub fn dup(&mut self) -> WidgetUpdateEvent<'_> {
-        self.sub_event(self.position)
     }
 }
 
@@ -138,58 +125,84 @@ pub trait Widget<T: crate::core::System> {
         false
     }
 
-    /// called for all widgets each frame before any call to draw
-    ///
-    /// if the UI is being lazily updated - meaning that the UI is only updated
-    /// and drawn once input events are received or state changes, then the
-    /// screen can remain idle for a while. however this is unsuited for
-    /// animations or other effects:
-    ///  - true indicates that another frame should follow quickly after this
-    ///  - false means don't care
+    /// given the sizing information that was obtained from the widget (min,
+    /// max, etc), a position for this widget has been determined. this is where
+    /// the widget is at!
+    fn layout(
+        &mut self,
+        _position: FRect,
+    ) -> Result<(), String> {
+        Ok(())
+    }
+
     fn update(
         &mut self,
         _event: WidgetUpdateEvent,
         _sys_interface: &mut T,
-    ) -> Result<bool, String> {
-        Ok(false)
+    ) -> Result<(WidgetUpdateReconstruct, WidgetUpdateReactivity), String> {
+        Ok((Default::default(), Default::default()))
     }
 
-    /// draw. called after all widgets are update each frame
+    /// draw. called after all widgets are updated each frame
     fn draw(&self, sys_interface: &mut T) -> Result<(), String>;
 }
 
-/// each frame after update_gui, the widget should be drawn with widget.draw()
-///
-/// dt is the duration since the previous frame, or maybe zero if it's the first
-/// frame
-pub fn update_gui<'b, T: crate::core::System + 'b>(
-    widget: &'b mut dyn Widget<T>,
-    events: &'b mut Option<crate::core::event::Event>,
-    system: &mut T,
-    dt: Duration,
-) -> Result<bool, String> {
-    let (w, h) = system.size()?;
-
-    let position = place(
-        widget,
-        FRect {
-            x: 0.,
-            y: 0.,
-            w: w.get() as f32,
-            h: h.get() as f32,
-        },
-        AspectRatioPreferredDirection::default(),
-        system,
-    )?;
-
-    let widget_event = WidgetUpdateEvent {
-        position,
-        events,
-        clipping_rect: ClippingRect::None,
-        dt,
-    };
-    widget.update(widget_event, system)
+#[derive(Default, Debug)]
+pub enum WidgetUpdateReconstruct {
+    /// the gui was not modified in a way that requires reconstruction
+    #[default]
+    None,
+    /// the gui must be constructed again this frame because a received event
+    /// caused a relevant state change. implementors should only return this
+    /// variant as reaction from Some(WidgetUpdateEvent::event)
+    NeedsReconstruction,
 }
+
+/// if the UI is being lazily updated - meaning that the UI is only updated and
+/// drawn once input events are received or state changes, then the screen can
+/// remain idle for a while. however this is unsuited for animations or other
+/// effects. this states how the UI should be updated
+#[derive(Default, Debug)]
+pub enum WidgetUpdateReactivity {
+    /// after this drawn, the next draw can first wait forever for user input
+    #[default]
+    None,
+    /// after this draw, the next draw should happen soon
+    FrameQuick
+}
+
+// /// each frame after update_gui, the widget should be drawn with widget.draw()
+// ///
+// /// dt is the duration since the previous frame, or maybe zero if it's the first
+// /// frame
+// fn update_gui<'b, T: crate::core::System + 'b>(
+//     widget: &'b mut dyn Widget<T>,
+//     event: &'b mut Option<crate::core::event::Event>,
+//     system: &mut T,
+//     dt: Duration,
+// ) -> Result<(WidgetUpdateReconstruct, WidgetUpdateReactivity), String> {
+//     let (w, h) = system.size()?;
+
+//     let position = place(
+//         widget,
+//         FRect {
+//             x: 0.,
+//             y: 0.,
+//             w: w.get() as f32,
+//             h: h.get() as f32,
+//         },
+//         AspectRatioPreferredDirection::default(),
+//         system,
+//     )?;
+
+//     let widget_event = WidgetUpdateEvent {
+//         position,
+//         event: event,
+//         clipping_rect: ClippingRect::None,
+//         dt,
+//     };
+//     widget.update(widget_event, system)
+// }
 
 /// given a widget's min, max lengths and fail policies, what's the widget's
 /// lengths and offset within the parent.
@@ -253,16 +266,16 @@ pub fn place<T: crate::core::System>(
     })
 }
 
-pub enum HandlerReturnValue {
-    /// the next draw can wait a very long time for user input
-    DelayNextFrame,
-    /// the next draw should occur reasonably soon after this one
-    NextFrame,
-    /// stop the gui now. exits before any more updates or draws
-    Stop,
-}
+// pub enum HandlerReturnValue<T: System, WidgetT: Widget<T>> {
+//     /// the next draw can wait a very long time for user input
+//     DelayNextFrame(WidgetT),
+//     /// the next draw should occur reasonably soon after this one
+//     NextFrame(WidgetT),
+//     /// stop the gui now. exits before any more updates or draws
+//     Stop,
+// }
 
-pub fn gui_loop<T: System, UpdateF, DrawF>(
+pub fn update_draw_loop<T: System, WidgetT: Widget<T>, UpdateF, DrawF>(
     delay: Duration,
     system_interface: &mut T,
     mut update_handler: UpdateF,
@@ -271,31 +284,24 @@ pub fn gui_loop<T: System, UpdateF, DrawF>(
 where
     UpdateF: FnMut(
         &mut T,
-        Option<crate::core::event::Event>,
+        &mut Option<crate::core::event::Event>,
         Duration,
-    ) -> Result<HandlerReturnValue, String>,
-    DrawF: FnMut(&mut T) -> Result<(), String>,
+    ) -> Result<WidgetT, String>,
+    DrawF: FnMut(WidgetT, &mut T) -> Result<(), String>,
 {
-    // timestamp of just before the previous call to update. starts as now so
-    // that there is a very small (or zero) dt given to the first update call
-    //
-    // set to just before the previous call to update
     let mut previous_update_call = Instant::now();
-
-    // the next update call should happen at or before deadline. none if it can
-    // wait forever for events before calling update
-    //
-    // starts as Some(now) so that the first frame occurs right away
     let mut deadline: Option<Instant> = Some(previous_update_call);
 
+    // frame loop, update then draw
     loop {
         let frame_begin = Instant::now();
 
         let mut following_frame_quick = false;
-        // frame loop
+
+        // let mut gui_for_draw: Option<WidgetT>; 
         loop {
             // loop - update several times per draw
-            let event = match deadline {
+            let mut event = match deadline {
                 Some(deadline) => {
                     let now = Instant::now();
                     if now >= deadline {
@@ -307,22 +313,36 @@ where
                 }
                 None => Some(system_interface.event()),
             };
-
+            
             let now = Instant::now();
-            // let deadline = deadline.get_or_insert(previous_update_call + delay);
+            // deadline can be None (wait forever) for first update within frame
+            // (when DelayNextFrame). but following that, it can only update for
+            // so long before draw must occur
+            let _ = deadline.get_or_insert(now + delay);
             let dt = now - previous_update_call;
             previous_update_call = now;
-            following_frame_quick |= match update_handler(system_interface, event, dt)? {
+
+            let constructed_gui = update_handler(system_interface, &mut event, dt)?;
+
+
+            // let update_value = ;
+            // gui_for_draw = Some(update_value.0);
+
+            following_frame_quick |= match update_value.1 {
                 HandlerReturnValue::Stop => return Ok(()),
                 HandlerReturnValue::DelayNextFrame => false,
                 HandlerReturnValue::NextFrame => true,
             };
 
             if event.is_none() {
-                break;
+                break; // deadline was hit. must draw now
             }
         }
-        draw_handler(system_interface)?;
+
+        // safety: guaranteed set in first iteration of loop above
+        let gui_for_draw = gui_for_draw.unwrap();
+
+        draw_handler(gui_for_draw, system_interface)?;
 
         match following_frame_quick {
             true => {

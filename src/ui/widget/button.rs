@@ -163,20 +163,21 @@ impl<'b, 'state, T: crate::core::System + 'b> Widget<T> for Button<'b, 'state, T
         sys_interface: &mut T,
     ) -> Result<bool, String> {
         let mut ret = false;
-        for e in event.events.iter_mut().filter(|e| e.is_some()) {
-            match e.unwrap() {
+
+        if let Some(e) = *event.event {
+            match e {
                 crate::core::event::Event::Key(key_event) => {
                     // can still occur even if zero area
                     if let Some(hotkey) = self.hotkey {
                         if key_event.key == hotkey {
-                            *e = None;
+                            *event.event = None;
                             if key_event.down {
                                 self.state.set(ButtonPrivateState {
                                     s: ButtonState::Pressed,
                                 });
                             } else {
                                 // rising edge
-                                ret |= (self.functionality)(sys_interface)?;
+                                ret = (self.functionality)(sys_interface)?;
                                 self.state.set(ButtonPrivateState {
                                     s: ButtonState::Idle,
                                 });
@@ -192,12 +193,12 @@ impl<'b, 'state, T: crate::core::System + 'b> Widget<T> for Button<'b, 'state, T
                             && event.clipping_rect.contains_point((mouse.x, mouse.y))
                         {
                             if mouse.changed {
-                                *e = None;
+                                *event.event = None;
                             }
                             if !mouse.down {
                                 if mouse.changed {
                                     // rising edge
-                                    ret |= (self.functionality)(sys_interface)?;
+                                    ret = (self.functionality)(sys_interface)?;
                                 }
                                 self.state.set(ButtonPrivateState {
                                     s: ButtonState::Hovered,

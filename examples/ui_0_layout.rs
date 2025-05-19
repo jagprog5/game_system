@@ -10,7 +10,7 @@ use game_system::{
             },
         },
         widget::{
-            gui_loop,
+            update_draw_loop,
             horizontal_layout::HorizontalLayout,
             image_display::ImageDisplay,
             strut::Strut,
@@ -44,9 +44,7 @@ fn do_example<T: game_system::core::System>(
 
     const DELAY: Duration = Duration::from_micros(16666);
 
-    gui_loop(DELAY, &mut system, |system, events, dt| {
-        // constructs the whole GUI each frame. other examples don't bother
-        // doing this, but it's key to claiming it's a "immediate mode" gui.
+    update_draw_loop(DELAY, &mut system, |system, event, dt| {
         let mut horizontal_0 = ImageDisplay::new(&["examples", "assets", "test.jpg"][..]);
         horizontal_0.aspect_ratio_fail_policy = AspectRatioFailPolicy::Stretch;
         horizontal_0.request_aspect_ratio = false;
@@ -158,14 +156,15 @@ fn do_example<T: game_system::core::System>(
         horizontal_layout.elems.push(Box::new(horizontal_3));
         horizontal_layout.elems.push(Box::new(horizontal_4));
         horizontal_layout.elems.push(Box::new(horizontal_5));
-        let r = update_gui(&mut horizontal_layout, events, system, dt)?;
 
-        // after gui update, use whatever events are left
-        for e in events.iter_mut().filter(|e| e.is_some()) {
-            match e.unwrap() {
+        let r = update_gui(&mut horizontal_layout, event, system, dt)?;
+
+        // handle non consumed event
+        if let Some(e) = *event {
+            match e {
                 game_system::core::event::Event::Mouse(mouse_event) => {
                     if mouse_event.down && mouse_event.changed {
-                        *e = None; // intentional redundant
+                        *event = None; // intentional redundant
                         println!(
                             "nothing consumed the click! {:?}",
                             (mouse_event.x, mouse_event.y)
@@ -175,16 +174,31 @@ fn do_example<T: game_system::core::System>(
                 game_system::core::event::Event::Key(key_event) => {
                     if key_event.key == 27 {
                         // esc
-                        *e = None; // intentional redundant
+                        *event = None; // intentional redundant
                         return Ok(HandlerReturnValue::Stop);
                     }
                 }
                 game_system::core::event::Event::Quit => {
-                    *e = None; // intentional redundant
+                    *event = None; // intentional redundant
                     return Ok(HandlerReturnValue::Stop);
                 }
                 _ => {}
             }
+        }
+        todo!();
+    }, |widget, system| {
+
+    })?;
+
+    gui_loop(DELAY, &mut system, |system, events, dt| {
+        // constructs the whole GUI each frame. other examples don't bother
+        // doing this, but it's key to claiming it's a "immediate mode" gui.
+        
+        let r = update_gui(&mut horizontal_layout, events, system, dt)?;
+
+        // after gui update, use whatever events are left
+        for e in events.iter_mut().filter(|e| e.is_some()) {
+            
         }
 
         system.clear(Color {

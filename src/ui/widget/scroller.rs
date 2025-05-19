@@ -309,8 +309,8 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
         };
 
         // handle click and drag scroll
-        for e in event.events.iter_mut().filter(|e| e.is_some()) {
-            match e.unwrap() {
+        if let Some(e) = *event.event {
+            match e {
                 crate::core::event::Event::MouseWheel(m) => {
                     if pos.contains_point((m.x, m.y))
                         && event.clipping_rect.contains_point((m.x, m.y))
@@ -331,49 +331,48 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
                         // events are consumed. but on the falling edge this
                         // should still happen (when about to not be dragging)
                         if let DragState::Dragging(_) = self.drag_state.get() {
-                            *e = None;
+                            *event.event = None;
                         }
                         self.drag_state.set(DragState::None);
-                        continue;
-                    }
-
-                    if let DragState::None = self.drag_state.get() {
-                        if m.changed
-                            && pos.contains_point((m.x, m.y))
-                            && event.clipping_rect.contains_point((m.x, m.y))
-                        {
-                            self.drag_state.set(DragState::DragStart((m.x, m.y)));
-                            // fall through
+                    } else {
+                        if let DragState::None = self.drag_state.get() {
+                            if m.changed
+                                && pos.contains_point((m.x, m.y))
+                                && event.clipping_rect.contains_point((m.x, m.y))
+                            {
+                                self.drag_state.set(DragState::DragStart((m.x, m.y)));
+                                // fall through
+                            }
                         }
-                    }
-
-                    if let DragState::DragStart((start_x, start_y)) = self.drag_state.get() {
-                        let dragged_far_enough_x =
-                            (start_x - m.x).unsigned_abs() > self.drag_deadzone;
-                        let dragged_far_enough_y =
-                            (start_y - m.y).unsigned_abs() > self.drag_deadzone;
-                        let trigger_x = dragged_far_enough_x && self.scroll_x.is_some();
-                        let trigger_y = dragged_far_enough_y && self.scroll_y.is_some();
-                        if trigger_x || trigger_y {
-                            self.drag_state.set(DragState::Dragging((
-                                m.x - self.scroll_x.map(|c| c.get()).unwrap_or(0),
-                                m.y - self.scroll_y.map(|c| c.get()).unwrap_or(0),
-                            )));
-                            // intentional fallthrough
+    
+                        if let DragState::DragStart((start_x, start_y)) = self.drag_state.get() {
+                            let dragged_far_enough_x =
+                                (start_x - m.x).unsigned_abs() > self.drag_deadzone;
+                            let dragged_far_enough_y =
+                                (start_y - m.y).unsigned_abs() > self.drag_deadzone;
+                            let trigger_x = dragged_far_enough_x && self.scroll_x.is_some();
+                            let trigger_y = dragged_far_enough_y && self.scroll_y.is_some();
+                            if trigger_x || trigger_y {
+                                self.drag_state.set(DragState::Dragging((
+                                    m.x - self.scroll_x.map(|c| c.get()).unwrap_or(0),
+                                    m.y - self.scroll_y.map(|c| c.get()).unwrap_or(0),
+                                )));
+                                // intentional fallthrough
+                            }
                         }
-                    }
-
-                    if let DragState::Dragging((drag_x, drag_y)) = self.drag_state.get() {
-                        self.scroll_x.map(|scroll_x| scroll_x.set(m.x - drag_x));
-                        self.scroll_y.map(|scroll_y| scroll_y.set(m.y - drag_y));
-                    }
-
-                    // LAST: if currently dragging then consume all mouse events
-                    match self.drag_state.get() {
-                        DragState::Dragging(_) => {
-                            *e = None;
+    
+                        if let DragState::Dragging((drag_x, drag_y)) = self.drag_state.get() {
+                            self.scroll_x.map(|scroll_x| scroll_x.set(m.x - drag_x));
+                            self.scroll_y.map(|scroll_y| scroll_y.set(m.y - drag_y));
                         }
-                        _ => {}
+    
+                        // LAST: if currently dragging then consume all mouse events
+                        match self.drag_state.get() {
+                            DragState::Dragging(_) => {
+                                *event.event = None;
+                            }
+                            _ => {}
+                        }
                     }
                 }
                 _ => {}

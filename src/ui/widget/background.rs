@@ -103,6 +103,14 @@ impl<'b, T: crate::core::System + 'b> Widget<T> for Background<'b, T> {
             .preferred_ratio_exceed_parent(self.contained.as_ref())
     }
 
+    fn layout(
+        &mut self,
+        _position: crate::ui::util::rect::FRect,
+    ) -> Result<(), String> {
+        // self.sizing.
+        Ok(())
+    }
+
     fn update(
         &mut self,
         mut event: super::WidgetUpdateEvent,
@@ -128,4 +136,5 @@ impl<'b, T: crate::core::System + 'b> Widget<T> for Background<'b, T> {
         }
         Ok(())
     }
+    
 }
