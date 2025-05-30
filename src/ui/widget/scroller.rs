@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::{cell::Cell, rc::Rc};
 
 use crate::{
     core::{clipping_rect::ClippingRect, texture_rect::TextureRect},
@@ -76,18 +76,18 @@ pub static SCROLLER_SCROLL_WHEEL_SENSITIVITY_DEFAULT: i32 = 20;
 /// which are not within the sdl clipping rectangle (which is set for both draw,
 /// as well as update, for convenience)
 ///
-pub struct Scroller<'b, 'scroll_state, T: crate::core::System> {
+pub struct Scroller<'b, T: crate::core::System> {
     /// manhattan distance that the mouse must travel before it's considered a
     /// click and drag scroll
     pub drag_deadzone: u32,
     pub scroll_wheel_sensitivity: i32,
 
     /// state which should persist between frames
-    pub drag_state: &'scroll_state Cell<DragState>,
+    pub drag_state: Rc<Cell<DragState>>,
     /// state which should persist between frames. None if disable
-    pub scroll_x: Option<&'scroll_state Cell<i32>>,
+    pub scroll_x: Option<Rc<Cell<i32>>>,
     /// state which should persist between frames. None if disable
-    pub scroll_y: Option<&'scroll_state Cell<i32>>,
+    pub scroll_y: Option<Rc<Cell<i32>>>,
 
     pub contained: Box<dyn Widget<T> + 'b>,
 
@@ -96,9 +96,9 @@ pub struct Scroller<'b, 'scroll_state, T: crate::core::System> {
     pub lock_small_content_x: Option<MaxLenFailPolicy>,
     pub lock_small_content_y: Option<MaxLenFailPolicy>,
     /// an output indicating the scroll amount and the max scroll, respectively
-    pub scroll_x_portion: Option<&'scroll_state Cell<(i32, i32)>>,
+    pub scroll_x_portion: Option<Rc<Cell<(i32, i32)>>>,
     /// an output indicating the scroll amount and the max scroll, respectively
-    pub scroll_y_portion: Option<&'scroll_state Cell<(i32, i32)>>,
+    pub scroll_y_portion: Option<Rc<Cell<(i32, i32)>>>,
 
     /// calculated during update, stored for draw.
     /// used for clipping rect calculations
@@ -106,14 +106,14 @@ pub struct Scroller<'b, 'scroll_state, T: crate::core::System> {
     position_for_contained_from_update: FRect,
 }
 
-impl<'b, 'scroll_state, T: crate::core::System> Scroller<'b, 'scroll_state, T> {
+impl<'b, T: crate::core::System> Scroller<'b, T> {
     /// scroll_x, scroll_y, and drag_state are states which should be persist
     /// between frames
     pub fn new(
         contains: Box<dyn Widget<T> + 'b>,
-        scroll_x: Option<&'scroll_state Cell<i32>>,
-        scroll_y: Option<&'scroll_state Cell<i32>>,
-        drag_state: &'scroll_state Cell<DragState>,
+        scroll_x: Option<Rc<Cell<i32>>>,
+        scroll_y: Option<Rc<Cell<i32>>>,
+        drag_state: Rc<Cell<DragState>>,
     ) -> Self {
         Self {
             drag_state,
@@ -142,8 +142,8 @@ fn apply_scroll_restrictions(
     scroll_y: &mut i32,
     lock_small_content_x: Option<MaxLenFailPolicy>,
     lock_small_content_y: Option<MaxLenFailPolicy>,
-    scroll_x_portion: Option<&Cell<(i32, i32)>>,
-    scroll_y_portion: Option<&Cell<(i32, i32)>>,
+    scroll_x_portion: Option<&Rc<Cell<(i32, i32)>>>,
+    scroll_y_portion: Option<&Rc<Cell<(i32, i32)>>>,
 ) {
     position_for_contained.x += *scroll_x;
     position_for_contained.y += *scroll_y;
@@ -235,7 +235,7 @@ fn apply_scroll_restrictions(
     }
 }
 
-impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scroll_state, T> {
+impl<'b, T: crate::core::System> Widget<T> for Scroller<'b, T> {
     fn min(&self, sys_interface: &mut T) -> Result<(MinLen, MinLen), String> {
         self.sizing.min(self.contained.as_ref(), sys_interface)
     }
@@ -315,11 +315,16 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
                     if pos.contains_point((m.x, m.y))
                         && event.clipping_rect.contains_point((m.x, m.y))
                     {
-                        self.scroll_x.map(|scroll_x| {
+                        *e = None;
+                        if let DragState::Dragging(_) = self.drag_state.get() {
+                            self.drag_state.set(DragState::DragStart((m.x, m.y)));
+                        }
+                        
+                        self.scroll_x.as_ref().map(|scroll_x| {
                             scroll_x
                                 .set(scroll_x.get() - m.wheel_dx * self.scroll_wheel_sensitivity)
                         });
-                        self.scroll_y.map(|scroll_y| {
+                        self.scroll_y.as_ref().map(|scroll_y| {
                             scroll_y
                                 .set(scroll_y.get() + m.wheel_dy * self.scroll_wheel_sensitivity)
                         });
@@ -356,16 +361,20 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
                         let trigger_y = dragged_far_enough_y && self.scroll_y.is_some();
                         if trigger_x || trigger_y {
                             self.drag_state.set(DragState::Dragging((
-                                m.x - self.scroll_x.map(|c| c.get()).unwrap_or(0),
-                                m.y - self.scroll_y.map(|c| c.get()).unwrap_or(0),
+                                m.x - self.scroll_x.as_ref().map(|c| c.get()).unwrap_or(0),
+                                m.y - self.scroll_y.as_ref().map(|c| c.get()).unwrap_or(0),
                             )));
                             // intentional fallthrough
                         }
                     }
 
                     if let DragState::Dragging((drag_x, drag_y)) = self.drag_state.get() {
-                        self.scroll_x.map(|scroll_x| scroll_x.set(m.x - drag_x));
-                        self.scroll_y.map(|scroll_y| scroll_y.set(m.y - drag_y));
+                        self.scroll_x
+                            .as_ref()
+                            .map(|scroll_x| scroll_x.set(m.x - drag_x));
+                        self.scroll_y
+                            .as_ref()
+                            .map(|scroll_y| scroll_y.set(m.y - drag_y));
                     }
 
                     // LAST: if currently dragging then consume all mouse events
@@ -394,8 +403,8 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
             }
         };
 
-        let mut scroll_x_arg = self.scroll_x.map(|c| c.get()).unwrap_or(0);
-        let mut scroll_y_arg = self.scroll_y.map(|c| c.get()).unwrap_or(0);
+        let mut scroll_x_arg = self.scroll_x.as_ref().map(|c| c.get()).unwrap_or(0);
+        let mut scroll_y_arg = self.scroll_y.as_ref().map(|c| c.get()).unwrap_or(0);
         apply_scroll_restrictions(
             position_for_contained,
             pos,
@@ -403,18 +412,18 @@ impl<'b, 'scroll_state, T: crate::core::System> Widget<T> for Scroller<'b, 'scro
             &mut scroll_y_arg,
             self.lock_small_content_x,
             self.lock_small_content_y,
-            self.scroll_x_portion,
-            self.scroll_y_portion,
+            self.scroll_x_portion.as_ref(),
+            self.scroll_y_portion.as_ref(),
         );
-        self.scroll_x.map(|c| c.set(scroll_x_arg));
-        self.scroll_y.map(|c| c.set(scroll_y_arg));
+        self.scroll_x.as_ref().map(|c| c.set(scroll_x_arg));
+        self.scroll_y.as_ref().map(|c| c.set(scroll_y_arg));
 
         self.clipping_rect_for_contained_from_update =
             event.clipping_rect.intersect_area(Some(pos));
         self.position_for_contained_from_update.x +=
-            self.scroll_x.map(|c| c.get()).unwrap_or(0) as f32;
+            self.scroll_x.as_ref().map(|c| c.get()).unwrap_or(0) as f32;
         self.position_for_contained_from_update.y +=
-            self.scroll_y.map(|c| c.get()).unwrap_or(0) as f32;
+            self.scroll_y.as_ref().map(|c| c.get()).unwrap_or(0) as f32;
 
         let mut event_for_contained = event.sub_event(self.position_for_contained_from_update);
         event_for_contained.clipping_rect = self.clipping_rect_for_contained_from_update;

@@ -52,11 +52,14 @@ pub struct WidgetUpdateEvent<'sdl> {
     /// able to use it. secondary purpose: events which are not used by the UI
     /// are passed down to the rest of the application.
     ///
-    /// for simplicity (and performance), the following iteration order is done:
+    /// for simplicity (and safety), the following iteration order is done:
     ///
     /// for each widget:  
     ///     for each event:  
     ///         widget.handle(event)
+    /// 
+    /// (all events are accumulated into one struct, which are then given to
+    /// each widget in turn)
     ///
     /// but this is an approximation of what should be happening which works a
     /// majority of the time. here is the ideal iteration order (which does not
@@ -66,11 +69,24 @@ pub struct WidgetUpdateEvent<'sdl> {
     ///     for each widget:  
     ///         widget.handle(event)
     ///
+    /// (each event is put through the entirety of the game and gui logic, one
+    /// at a time)
+    ///
     /// there is a difference in the iteration order; each event should be fully
     /// processed by everything before moving on to the next event. related:
     /// https://youtu.be/JxI3Eu5DPwE?si=58H4XhTT2m7XgM3W&t=254
     ///
-    /// this hasn't meaningfully come up yet but it's something to be mindful of
+    /// the first way is safer because this decouples the retrieval of events
+    /// from the backend from the rest of the gui/game logic. this prevents a
+    /// scenario where inputs become farther and farther behind because game
+    /// logic and drawing is taking too long compared to the rate of events
+    /// being created
+    /// 
+    /// secondly, the inputs should only be effective for the thing which is on
+    /// the screen. so if for example a button hotkey is pressed twice within
+    /// the same frame, they both apply to the current state (and the second one
+    /// might not be effective depending on how the button functionality is
+    /// implemented)
     pub events: &'sdl mut [Option<crate::core::event::Event>],
     /// time since previous event, maybe zero if first event
     pub dt: Duration,

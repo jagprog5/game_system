@@ -1,4 +1,4 @@
-use std::{cell::Cell, num::NonZeroU32, path::Path, time::Duration};
+use std::{cell::Cell, num::NonZeroU32, path::Path, rc::Rc, time::Duration};
 
 use game_system::{
     core::{color::Color, texture_rect::TextureRect},
@@ -74,15 +74,15 @@ fn do_example<T: game_system::core::System>(
     );
     checkbox.hotkey = Some(b'a');
 
-    let drag_state = Cell::new(DragState::default());
-    let scroll_x = Cell::new(0i32);
-    let scroll_y = Cell::new(0i32);
+    let drag_state = Rc::new(Cell::new(DragState::default()));
+    let scroll_x = Rc::new(Cell::new(0i32));
+    let scroll_y = Rc::new(Cell::new(0i32));
 
-    let mut scroller = Scroller::<'_, '_, T>::new(
+    let mut scroller = Scroller::<'_, T>::new(
         Box::new(checkbox),
-        Some(&scroll_x),
-        Some(&scroll_y),
-        &drag_state,
+        Some(scroll_x),
+        Some(scroll_y),
+        drag_state,
     );
     scroller.lock_small_content_x = None;
     scroller.lock_small_content_y = None;
@@ -104,7 +104,7 @@ fn do_example<T: game_system::core::System>(
         for e in events.iter_mut().filter(|e| e.is_some()) {
             match e.unwrap() {
                 game_system::core::event::Event::Mouse(mouse_event) => {
-                    if mouse_event.down && mouse_event.changed {
+                    if !mouse_event.down && mouse_event.changed {
                         *e = None; // intentional redundant
                         println!(
                             "nothing consumed the click! {:?}",

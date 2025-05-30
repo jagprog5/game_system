@@ -164,7 +164,7 @@ fn do_example<T: game_system::core::System>(
         for e in events.iter_mut().filter(|e| e.is_some()) {
             match e.unwrap() {
                 game_system::core::event::Event::Mouse(mouse_event) => {
-                    if mouse_event.down && mouse_event.changed {
+                    if !mouse_event.down && mouse_event.changed {
                         *e = None; // intentional redundant
                         println!(
                             "nothing consumed the click! {:?}",
