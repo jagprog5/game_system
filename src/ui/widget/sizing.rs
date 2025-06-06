@@ -56,11 +56,7 @@ pub enum NestedContentSizing {
     Inherit,
     /// the parent's size is stated literally, ignoring the contained thing
     ///
-    /// if a widget is contained, it may place the contained within the draw
-    /// bounds of the parent widget
-    ///
-    /// if something else is contained, then it's up to that widget to decide
-    /// how best to handle it
+    /// the contains is then placed inside the parent, separately
     Custom(CustomSizing),
 }
 
@@ -70,21 +66,21 @@ impl NestedContentSizing {
     pub fn position_for_contained<T: crate::core::System>(
         &self,
         contained: &dyn Widget<T>,
-        event: &WidgetUpdateEvent,
+        event_position: FRect,
         sys_interface: &mut T,
     ) -> Result<FRect, String> {
         match &self {
             NestedContentSizing::Inherit => {
                 // exactly passes sizing information to parent in this
                 // case, no need to place again
-                Ok(event.position)
+                Ok(event_position)
             }
             NestedContentSizing::Custom(_) => {
                 // whatever the sizing of the parent, properly place the
                 // contained within it
                 place(
                     contained,
-                    event.position,
+                    event_position,
                     AspectRatioPreferredDirection::default(),
                     sys_interface,
                 )
@@ -99,7 +95,7 @@ impl NestedContentSizing {
         sys_interface: &mut T,
     ) -> Result<bool, String> {
         let position_for_contained =
-            self.position_for_contained(contained, event, sys_interface)?;
+            self.position_for_contained(contained, event.position, sys_interface)?;
         let event_for_contained = event.sub_event(position_for_contained);
         contained.update(event_for_contained, sys_interface)
     }

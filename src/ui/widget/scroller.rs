@@ -319,7 +319,7 @@ impl<'b, T: crate::core::System> Widget<T> for Scroller<'b, T> {
                         if let DragState::Dragging(_) = self.drag_state.get() {
                             self.drag_state.set(DragState::DragStart((m.x, m.y)));
                         }
-                        
+
                         self.scroll_x.as_ref().map(|scroll_x| {
                             scroll_x
                                 .set(scroll_x.get() - m.wheel_dx * self.scroll_wheel_sensitivity)
@@ -389,9 +389,11 @@ impl<'b, T: crate::core::System> Widget<T> for Scroller<'b, T> {
             }
         }
 
-        self.position_for_contained_from_update =
-            self.sizing
-                .position_for_contained(self.contained.as_ref(), &event, sys_interface)?;
+        self.position_for_contained_from_update = self.sizing.position_for_contained(
+            self.contained.as_ref(),
+            event.position,
+            sys_interface,
+        )?;
 
         let position_for_contained: Option<TextureRect> =
             self.position_for_contained_from_update.into();

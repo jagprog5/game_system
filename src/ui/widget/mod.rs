@@ -16,6 +16,7 @@ pub mod scroller;
 pub mod sizing;
 
 pub mod horizontal_layout;
+pub mod slot;
 pub mod vertical_layout;
 
 use std::time::{Duration, Instant};
@@ -57,7 +58,7 @@ pub struct WidgetUpdateEvent<'sdl> {
     /// for each widget:  
     ///     for each event:  
     ///         widget.handle(event)
-    /// 
+    ///
     /// (all events are accumulated into one struct, which are then given to
     /// each widget in turn)
     ///
@@ -81,7 +82,7 @@ pub struct WidgetUpdateEvent<'sdl> {
     /// scenario where inputs become farther and farther behind because game
     /// logic and drawing is taking too long compared to the rate of events
     /// being created
-    /// 
+    ///
     /// secondly, the inputs should only be effective for the thing which is on
     /// the screen. so if for example a button hotkey is pressed twice within
     /// the same frame, they both apply to the current state (and the second one

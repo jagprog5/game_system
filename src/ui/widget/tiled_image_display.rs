@@ -51,6 +51,25 @@ impl TiledImageDisplay {
 impl<T: crate::core::System> Widget<T> for TiledImageDisplay {
     fn update(&mut self, event: WidgetUpdateEvent, _sys_interface: &mut T) -> Result<bool, String> {
         self.background_draw_pos = event.position;
+        // consume mouse events over position
+        let pos: Option<TextureRect> = self.background_draw_pos.into();
+        if let Some(pos) = pos {
+            for e in event.events.iter_mut().filter(|e| e.is_some()) {
+                match e.unwrap() {
+                    crate::core::event::Event::Mouse(m) => {
+                        if pos.contains_point((m.x, m.y)) {
+                            *e = None;
+                        }
+                    }
+                    crate::core::event::Event::MouseWheel(m) => {
+                        if pos.contains_point((m.x, m.y)) {
+                            *e = None;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
         Ok(false)
     }
 
