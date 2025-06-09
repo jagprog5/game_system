@@ -109,6 +109,17 @@ impl From<crate::core::texture_rect::TextureRectF> for FRect {
     }
 }
 
+impl From<crate::core::texture_rect::TextureRect> for FRect {
+    fn from(value: crate::core::texture_rect::TextureRect) -> Self {
+        Self {
+            x: value.x as f32,
+            y: value.y as f32,
+            w: value.w.get() as f32,
+            h: value.h.get() as f32,
+        }
+    }
+}
+
 /// convert to texture area for use by system in drawing a pixel at integer
 /// coordinates
 impl From<FRect> for Option<crate::core::texture_rect::TextureRect> {
