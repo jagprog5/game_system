@@ -3,7 +3,7 @@ use crate::ui::{
         clamp, MaxLen, MaxLenFailPolicy, MaxLenPolicy, MinLen, MinLenFailPolicy, MinLenPolicy,
         PreferredPortion,
     },
-    widget::{Widget, WidgetUpdateEvent},
+    widget::{FrameTransiency, Widget, WidgetUpdateEvent},
 };
 
 use super::vertical_layout::{direction_conditional_iter_mut, MajorAxisMaxLenPolicy};
@@ -150,9 +150,9 @@ impl<'b, T: crate::core::System> Widget<T> for HorizontalLayout<'b, T> {
         &mut self,
         mut event: WidgetUpdateEvent,
         sys_interface: &mut T,
-    ) -> Result<bool, String> {
+    ) -> Result<FrameTransiency, String> {
         if self.elems.is_empty() {
-            return Ok(false);
+            return Ok(Default::default());
         }
 
         // collect info from child components
@@ -277,7 +277,7 @@ impl<'b, T: crate::core::System> Widget<T> for HorizontalLayout<'b, T> {
             }
         }
 
-        let mut any_request_another_frame = false;
+        let mut any_request_another_frame = Default::default();
         for (elem, info) in
             direction_conditional_iter_mut(&mut self.elems, self.reverse).zip(info.iter_mut())
         {

@@ -3,7 +3,7 @@ use crate::ui::{
         clamp, place, MaxLen, MaxLenFailPolicy, MaxLenPolicy, MinLen, MinLenFailPolicy,
         MinLenPolicy, PreferredPortion,
     },
-    widget::{Widget, WidgetUpdateEvent},
+    widget::{FrameTransiency, Widget, WidgetUpdateEvent},
 };
 
 use super::horizontal_layout::RUN_OFF_SIZING_AMOUNT;
@@ -172,9 +172,9 @@ impl<'b, T: crate::core::System> Widget<T> for VerticalLayout<'b, T> {
         &mut self,
         mut event: WidgetUpdateEvent,
         sys_interface: &mut T,
-    ) -> Result<bool, String> {
+    ) -> Result<FrameTransiency, String> {
         if self.elems.is_empty() {
-            return Ok(false);
+            return Ok(Default::default());
         }
 
         // collect various info from child components
@@ -298,7 +298,7 @@ impl<'b, T: crate::core::System> Widget<T> for VerticalLayout<'b, T> {
             }
         }
 
-        let mut any_request_another_frame = false;
+        let mut any_request_another_frame = Default::default();
         for (elem, info) in
             direction_conditional_iter_mut(&mut self.elems, self.reverse).zip(info.iter_mut())
         {

@@ -11,6 +11,7 @@ use crate::ui::util::length::{
 use crate::ui::util::rect::FRect;
 
 use crate::ui::util::rust::CellRefOrCell;
+use crate::ui::widget::FrameTransiency;
 
 use super::{Widget, WidgetUpdateEvent};
 
@@ -160,9 +161,13 @@ impl<'state, T: crate::core::System> Widget<T> for SingleLineLabel<'state> {
         })())
     }
 
-    fn update(&mut self, event: WidgetUpdateEvent, _sys_interface: &mut T) -> Result<bool, String> {
+    fn update(
+        &mut self,
+        event: WidgetUpdateEvent,
+        _sys_interface: &mut T,
+    ) -> Result<FrameTransiency, String> {
         self.draw_pos = event.position;
-        Ok(false)
+        Ok(Default::default())
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {

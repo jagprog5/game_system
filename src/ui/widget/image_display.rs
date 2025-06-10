@@ -5,13 +5,16 @@ use crate::{
         texture_rect::{TextureDestinationF, TextureRect, TextureRectF, TextureSource},
         PathLike, TextureHandle,
     },
-    ui::util::{
-        aspect_ratio::AspectRatioFailPolicy,
-        length::{
-            AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MaxLenPolicy, MinLen,
-            MinLenFailPolicy, MinLenPolicy, PreferredPortion,
+    ui::{
+        util::{
+            aspect_ratio::AspectRatioFailPolicy,
+            length::{
+                AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MaxLenPolicy, MinLen,
+                MinLenFailPolicy, MinLenPolicy, PreferredPortion,
+            },
+            rect::FRect,
         },
-        rect::FRect,
+        widget::FrameTransiency,
     },
 };
 
@@ -195,9 +198,13 @@ impl<T: crate::core::System> Widget<T> for ImageDisplay {
         }())
     }
 
-    fn update(&mut self, event: WidgetUpdateEvent, _sys_interface: &mut T) -> Result<bool, String> {
+    fn update(
+        &mut self,
+        event: WidgetUpdateEvent,
+        _sys_interface: &mut T,
+    ) -> Result<FrameTransiency, String> {
         self.draw_pos = event.position;
-        Ok(false)
+        Ok(Default::default())
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {

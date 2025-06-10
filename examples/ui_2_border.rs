@@ -8,8 +8,8 @@ use game_system::{
             length::{MaxLen, MaxLenPolicy, MinLen, MinLenPolicy, PreferredPortion},
         },
         widget::{
-            border::Border, gui_loop, image_display::ImageDisplay, update_gui, HandlerReturnValue,
-            Widget,
+            border::Border, gui_loop, image_display::ImageDisplay, update_gui, FrameTransiency,
+            HandlerReturnValue, Widget,
         },
     },
 };
@@ -98,18 +98,17 @@ fn do_example<T: game_system::core::System>(
             }
         }
 
-        system.clear(Color {
-            r: 0,
-            g: 0,
-            b: 0,
-            a: 0xFF,
-        })?;
-        border.draw(system)?;
-        system.present()?;
-        Ok(match r {
-            true => HandlerReturnValue::NextFrame,
-            false => HandlerReturnValue::DelayNextFrame,
-        })
+        if !matches!(r, FrameTransiency::NextFrameNow) {
+            system.clear(Color {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0xFF,
+            })?;
+            border.draw(system)?;
+            system.present()?;
+        }
+        Ok(HandlerReturnValue::Some(r))
     })?;
     Ok(())
 }

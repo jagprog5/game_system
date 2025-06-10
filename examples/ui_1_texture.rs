@@ -7,8 +7,10 @@ use game_system::{
             aspect_ratio::AspectRatioFailPolicy,
             length::{MaxLen, MaxLenPolicy, MinLen, MinLenPolicy},
         },
-        widget::horizontal_layout::HorizontalLayout,
-        widget::{gui_loop, image_display::ImageDisplay, update_gui, HandlerReturnValue, Widget},
+        widget::{
+            gui_loop, horizontal_layout::HorizontalLayout, image_display::ImageDisplay, update_gui,
+            FrameTransiency, HandlerReturnValue, Widget,
+        },
     },
 };
 
@@ -105,18 +107,17 @@ fn do_example<T: game_system::core::System>(
             }
         }
 
-        system.clear(Color {
-            r: 0,
-            g: 0,
-            b: 0,
-            a: 0xFF,
-        })?;
-        horizontal_layout.draw(system)?;
-        system.present()?;
-        Ok(match r {
-            true => HandlerReturnValue::NextFrame,
-            false => HandlerReturnValue::DelayNextFrame,
-        })
+        if !matches!(r, FrameTransiency::NextFrameNow) {
+            system.clear(Color {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0xFF,
+            })?;
+            horizontal_layout.draw(system)?;
+            system.present()?;
+        }
+        Ok(HandlerReturnValue::Some(r))
     })?;
     Ok(())
 }

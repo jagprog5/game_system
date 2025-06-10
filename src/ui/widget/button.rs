@@ -2,9 +2,12 @@ use std::cell::Cell;
 
 use crate::{
     core::texture_rect::TextureRect,
-    ui::util::{
-        length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
-        rust::CellRefOrCell,
+    ui::{
+        util::{
+            length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
+            rust::CellRefOrCell,
+        },
+        widget::FrameTransiency,
     },
 };
 
@@ -38,7 +41,7 @@ pub enum ButtonInheritSizing {
 
 pub struct Button<'b, 'state, T: crate::core::System + 'b> {
     /// gives overall return result for update. See Widget::update()
-    pub functionality: Box<dyn FnMut(&mut T) -> Result<bool, String> + 'state>,
+    pub functionality: Box<dyn FnMut(&mut T) -> Result<FrameTransiency, String> + 'state>,
 
     pub idle: Box<dyn Widget<T> + 'b>,
     pub hovered: Box<dyn Widget<T> + 'b>,
@@ -61,7 +64,7 @@ impl<'b, 'state, T: crate::core::System + 'b> Button<'b, 'state, T> {
     /// functionality: gives overall return result for update. See
     /// Widget::update()
     pub fn new(
-        functionality: Box<dyn FnMut(&mut T) -> Result<bool, String> + 'state>,
+        functionality: Box<dyn FnMut(&mut T) -> Result<FrameTransiency, String> + 'state>,
         idle: Box<dyn Widget<T> + 'b>,
         hovered: Box<dyn Widget<T> + 'b>,
         pressed: Box<dyn Widget<T> + 'b>,
@@ -161,8 +164,8 @@ impl<'b, 'state, T: crate::core::System + 'b> Widget<T> for Button<'b, 'state, T
         &mut self,
         mut event: WidgetUpdateEvent,
         sys_interface: &mut T,
-    ) -> Result<bool, String> {
-        let mut ret = false;
+    ) -> Result<FrameTransiency, String> {
+        let mut ret = Default::default();
         for e in event.events.iter_mut().filter(|e| e.is_some()) {
             match e.unwrap() {
                 crate::core::event::Event::Key(key_event) => {

@@ -1,3 +1,5 @@
+use crate::ui::widget::FrameTransiency;
+
 use super::{sizing::NestedContentSizing, Widget};
 
 /// has a contained thing, and something which is drawn behind it (background)
@@ -107,7 +109,7 @@ impl<'b, T: crate::core::System + 'b> Widget<T> for Background<'b, T> {
         &mut self,
         mut event: super::WidgetUpdateEvent,
         sys_interface: &mut T,
-    ) -> Result<bool, String> {
+    ) -> Result<FrameTransiency, String> {
         Ok(self
             .sizing
             .update_contained(self.contained.as_mut(), &mut event, sys_interface)?

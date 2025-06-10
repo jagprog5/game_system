@@ -5,9 +5,12 @@ use crate::{
         texture_rect::{TextureRect, TextureSource},
         PathLike, TextureHandle,
     },
-    ui::util::{
-        length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
-        rect::FRect,
+    ui::{
+        util::{
+            length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
+            rect::FRect,
+        },
+        widget::FrameTransiency,
     },
 };
 
@@ -34,6 +37,9 @@ pub struct TiledImageDisplay {
 
     /// state stored from update for draw
     background_draw_pos: FRect,
+
+    /// default: true. consume mouse events over position
+    pub consume: bool,
 }
 
 impl TiledImageDisplay {
@@ -44,33 +50,40 @@ impl TiledImageDisplay {
             background: (p, background.1),
             sizing: Default::default(),
             background_draw_pos: Default::default(),
+            consume: true,
         }
     }
 }
 
 impl<T: crate::core::System> Widget<T> for TiledImageDisplay {
-    fn update(&mut self, event: WidgetUpdateEvent, _sys_interface: &mut T) -> Result<bool, String> {
+    fn update(
+        &mut self,
+        event: WidgetUpdateEvent,
+        _sys_interface: &mut T,
+    ) -> Result<FrameTransiency, String> {
         self.background_draw_pos = event.position;
-        // consume mouse events over position
-        let pos: Option<TextureRect> = self.background_draw_pos.into();
-        if let Some(pos) = pos {
-            for e in event.events.iter_mut().filter(|e| e.is_some()) {
-                match e.unwrap() {
-                    crate::core::event::Event::Mouse(m) => {
-                        if pos.contains_point((m.x, m.y)) {
-                            *e = None;
+        if self.consume {
+            // consume mouse events over position
+            let pos: Option<TextureRect> = self.background_draw_pos.into();
+            if let Some(pos) = pos {
+                for e in event.events.iter_mut().filter(|e| e.is_some()) {
+                    match e.unwrap() {
+                        crate::core::event::Event::Mouse(m) => {
+                            if pos.contains_point((m.x, m.y)) {
+                                *e = None;
+                            }
                         }
-                    }
-                    crate::core::event::Event::MouseWheel(m) => {
-                        if pos.contains_point((m.x, m.y)) {
-                            *e = None;
+                        crate::core::event::Event::MouseWheel(m) => {
+                            if pos.contains_point((m.x, m.y)) {
+                                *e = None;
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
         }
-        Ok(false)
+        Ok(Default::default())
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {

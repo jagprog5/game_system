@@ -10,11 +10,13 @@ use game_system::{
         },
         widget::{
             gui_loop,
+            horizontal_layout::HorizontalLayout,
             multi_line_label::{MultiLineLabel, MultiLineMinHeightFailPolicy},
             single_line_label::SingleLineLabel,
-            update_gui, HandlerReturnValue, Widget,
+            update_gui,
+            vertical_layout::VerticalLayout,
+            FrameTransiency, HandlerReturnValue, Widget,
         },
-        widget::{horizontal_layout::HorizontalLayout, vertical_layout::VerticalLayout},
     },
 };
 
@@ -122,18 +124,17 @@ fn do_example<T: game_system::core::System>(
             }
         }
 
-        system.clear(Color {
-            r: 0,
-            g: 0,
-            b: 0,
-            a: 0xFF,
-        })?;
-        layout.draw(system)?;
-        system.present()?;
-        Ok(match r {
-            true => HandlerReturnValue::NextFrame,
-            false => HandlerReturnValue::DelayNextFrame,
-        })
+        if !matches!(r, FrameTransiency::NextFrameNow) {
+            system.clear(Color {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0xFF,
+            })?;
+            layout.draw(system)?;
+            system.present()?;
+        }
+        Ok(HandlerReturnValue::Some(r))
     })?;
     Ok(())
 }

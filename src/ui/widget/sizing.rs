@@ -1,9 +1,12 @@
-use crate::ui::util::{
-    length::{
-        AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy,
-        PreferredPortion,
+use crate::ui::{
+    util::{
+        length::{
+            AspectRatioPreferredDirection, MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy,
+            PreferredPortion,
+        },
+        rect::FRect,
     },
-    rect::FRect,
+    widget::FrameTransiency,
 };
 
 use super::{place, Widget, WidgetUpdateEvent};
@@ -93,7 +96,7 @@ impl NestedContentSizing {
         contained: &mut dyn Widget<T>,
         event: &mut WidgetUpdateEvent,
         sys_interface: &mut T,
-    ) -> Result<bool, String> {
+    ) -> Result<FrameTransiency, String> {
         let position_for_contained =
             self.position_for_contained(contained, event.position, sys_interface)?;
         let event_for_contained = event.sub_event(position_for_contained);

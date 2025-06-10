@@ -1,4 +1,7 @@
-use crate::{core::clipping_rect::ClippingRect, ui::widget::Widget};
+use crate::{
+    core::clipping_rect::ClippingRect,
+    ui::widget::{FrameTransiency, Widget},
+};
 
 /// contains something. when it is draw, a clipping rect is set to not allow
 /// drawing to go past the widget's given position
@@ -24,7 +27,7 @@ impl<'b, T: crate::core::System> Widget<T> for Clipper<'b, T> {
         &mut self,
         mut event: crate::ui::widget::WidgetUpdateEvent,
         sys_interface: &mut T,
-    ) -> Result<bool, String> {
+    ) -> Result<FrameTransiency, String> {
         let previous_clipping_rect = event.clipping_rect;
         self.update_clip_rect = previous_clipping_rect.intersect_area(event.position.into());
         event.clipping_rect = self.update_clip_rect;

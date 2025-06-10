@@ -2,9 +2,12 @@ use std::{cell::Cell, path::PathBuf};
 
 use crate::{
     core::{texture_rect::TextureRect, PathLike, TextureHandle},
-    ui::util::{
-        length::{MaxLen, MinLen},
-        rect::FRect,
+    ui::{
+        util::{
+            length::{MaxLen, MinLen},
+            rect::FRect,
+        },
+        widget::FrameTransiency,
     },
 };
 
@@ -90,13 +93,13 @@ impl<'state, T: crate::core::System> Widget<T> for CheckBox<'state> {
         &mut self,
         event: super::WidgetUpdateEvent,
         _sys_interface: &mut T,
-    ) -> Result<bool, String> {
+    ) -> Result<FrameTransiency, String> {
         self.changed.set(false);
         self.draw_pos = event.position;
 
         let non_zero_area: TextureRect = match self.draw_pos.into() {
             Some(v) => v,
-            None => return Ok(false), // can't click or hover with zero area
+            None => return Ok(Default::default()), // can't click or hover with zero area
         };
         for e in event.events.iter_mut().filter(|e| e.is_some()) {
             match e.unwrap() {
@@ -132,7 +135,7 @@ impl<'state, T: crate::core::System> Widget<T> for CheckBox<'state> {
                 _ => {}
             }
         }
-        Ok(false)
+        Ok(Default::default())
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {

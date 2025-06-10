@@ -16,7 +16,7 @@ use game_system::{
             strut::Strut,
             update_gui,
             vertical_layout::{MajorAxisMaxLenPolicy, VerticalLayout},
-            HandlerReturnValue, Widget,
+            FrameTransiency, HandlerReturnValue, Widget,
         },
     },
 };
@@ -187,19 +187,18 @@ fn do_example<T: game_system::core::System>(
             }
         }
 
-        system.clear(Color {
-            r: 0,
-            g: 0,
-            b: 0,
-            a: 0xFF,
-        })?;
-        horizontal_layout.draw(system)?;
-        system.present()?;
-        // Ok(HandlerReturnValue::NextFrame)
-        Ok(match r {
-            true => HandlerReturnValue::NextFrame,
-            false => HandlerReturnValue::DelayNextFrame,
-        })
+        if !matches!(r, FrameTransiency::NextFrameNow) {
+            system.clear(Color {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0xFF,
+            })?;
+            horizontal_layout.draw(system)?;
+            system.present()?;
+        }
+
+        Ok(HandlerReturnValue::Some(r))
     })?;
     Ok(())
 }

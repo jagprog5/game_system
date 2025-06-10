@@ -10,7 +10,7 @@ use crate::{
             },
             rect::FRect,
         },
-        widget::{sizing::NestedContentSizing, Widget, WidgetUpdateEvent},
+        widget::{sizing::NestedContentSizing, FrameTransiency, Widget, WidgetUpdateEvent},
     },
 };
 
@@ -291,7 +291,7 @@ impl<'b, T: crate::core::System> Widget<T> for Scroller<'b, T> {
         &mut self,
         mut event: WidgetUpdateEvent,
         sys_interface: &mut T,
-    ) -> Result<bool, String> {
+    ) -> Result<FrameTransiency, String> {
         let pos: Option<TextureRect> = event.position.into();
         let pos = match pos {
             Some(v) => v,

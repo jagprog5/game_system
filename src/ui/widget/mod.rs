@@ -85,9 +85,7 @@ pub struct WidgetUpdateEvent<'sdl> {
     ///
     /// secondly, the inputs should only be effective for the thing which is on
     /// the screen. so if for example a button hotkey is pressed twice within
-    /// the same frame, they both apply to the current state (and the second one
-    /// might not be effective depending on how the button functionality is
-    /// implemented)
+    /// the same frame, they both apply to the current state
     pub events: &'sdl mut [Option<crate::core::event::Event>],
     /// time since previous event, maybe zero if first event
     pub dt: Duration,
@@ -175,23 +173,63 @@ pub trait Widget<T: crate::core::System> {
     }
 
     /// called for all widgets each frame before any call to draw
-    ///
-    /// if the UI is being lazily updated - meaning that the UI is only updated
-    /// and drawn once input events are received or state changes, then the
-    /// screen can remain idle for a while. however this is unsuited for
-    /// animations or other effects:
-    ///  - true indicates that another frame should follow quickly after this
-    ///  - false means don't care
     fn update(
         &mut self,
         _event: WidgetUpdateEvent,
         _sys_interface: &mut T,
-    ) -> Result<bool, String> {
-        Ok(false)
+    ) -> Result<FrameTransiency, String> {
+        Ok(Default::default())
     }
 
     /// draw. called after all widgets are update each frame
     fn draw(&self, sys_interface: &mut T) -> Result<(), String>;
+}
+
+#[derive(Default, Clone, Copy, Debug)]
+pub enum FrameTransiency {
+    /// if the UI is being lazily updated - meaning that the UI is only updated
+    /// and drawn once input events are received or state changes, then the
+    /// screen can remain idle for a while
+    ///
+    /// this enum variant means the ui doesn't care what happens
+    #[default]
+    None,
+    /// another frame should follow quickly after this
+    NextFrameQuick,
+    /// this frame should not be drawn. the next frame occurs immediately
+    NextFrameNow,
+}
+
+impl FrameTransiency {
+    fn strength(&self) -> u8 {
+        match self {
+            FrameTransiency::None => 0,
+            FrameTransiency::NextFrameQuick => 1,
+            FrameTransiency::NextFrameNow => 2,
+        }
+    }
+
+    fn strongest(self, other: Self) -> Self {
+        if self.strength() >= other.strength() {
+            self
+        } else {
+            other
+        }
+    }
+}
+
+impl std::ops::BitOr for FrameTransiency {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        self.strongest(rhs)
+    }
+}
+
+impl std::ops::BitOrAssign for FrameTransiency {
+    fn bitor_assign(&mut self, rhs: Self) {
+        *self = self.strongest(rhs);
+    }
 }
 
 /// each frame after update_gui, the widget should be drawn with widget.draw()
@@ -203,7 +241,7 @@ pub fn update_gui<'b, T: crate::core::System + 'b>(
     events: &'b mut [Option<crate::core::event::Event>],
     system: &mut T,
     dt: Duration,
-) -> Result<bool, String> {
+) -> Result<FrameTransiency, String> {
     let (w, h) = system.size()?;
 
     let position = place(
@@ -290,10 +328,7 @@ pub fn place<T: crate::core::System>(
 }
 
 pub enum HandlerReturnValue {
-    /// the next frame can wait a very long time for user input
-    DelayNextFrame,
-    /// the next frame should occur reasonably soon after this one
-    NextFrame,
+    Some(FrameTransiency),
     Stop,
 }
 
@@ -328,31 +363,38 @@ where
 
         match handle_result {
             HandlerReturnValue::Stop => return Ok(()),
-            HandlerReturnValue::DelayNextFrame | HandlerReturnValue::NextFrame => {
-                let oldest_event = if let HandlerReturnValue::DelayNextFrame = handle_result {
-                    // wait up to forever for the first event of this frame to
-                    // come in
-                    let event = system_interface.event();
-                    events_accumulator.push(Some(event));
-                    Instant::now()
-                } else {
-                    previous_handle_call
-                };
-
-                // don't send off the event immediately! wait a bit and
-                // accumulate several events to be processed together. max bound
-                // on waiting so that the first event received isn't too stale
-
-                loop {
-                    let max_time = oldest_event + max_delay;
-                    let now = Instant::now();
-                    if max_time <= now {
-                        break; // can't wait any longer
+            HandlerReturnValue::Some(frame_transiency) => {
+                match frame_transiency {
+                    FrameTransiency::NextFrameNow => {
+                        // don't wait for any events. go back to handler now
                     }
+                    _ => {
+                        let oldest_event = if let FrameTransiency::None = frame_transiency {
+                            // wait up to forever for the first event of this frame to
+                            // come in
+                            let event = system_interface.event();
+                            events_accumulator.push(Some(event));
+                            Instant::now()
+                        } else {
+                            previous_handle_call
+                        };
 
-                    let time_to_wait = max_time - now;
-                    if let Some(event) = system_interface.event_timeout(time_to_wait) {
-                        events_accumulator.push(Some(event));
+                        // don't send off the event immediately! wait a bit and
+                        // accumulate several events to be processed together. max bound
+                        // on waiting so that the first event received isn't too stale
+
+                        loop {
+                            let max_time = oldest_event + max_delay;
+                            let now = Instant::now();
+                            if max_time <= now {
+                                break; // can't wait any longer
+                            }
+
+                            let time_to_wait = max_time - now;
+                            if let Some(event) = system_interface.event_timeout(time_to_wait) {
+                                events_accumulator.push(Some(event));
+                            }
+                        }
                     }
                 }
             }

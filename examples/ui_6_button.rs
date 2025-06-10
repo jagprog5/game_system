@@ -4,7 +4,6 @@ use game_system::{
     core::{color::Color, texture_rect::TextureRect},
     ui::{
         util::length::{MaxLen, MaxLenFailPolicy, MinLenFailPolicy, PreferredPortion},
-        widget::vertical_layout::VerticalLayout,
         widget::{
             background::Background,
             border::Border,
@@ -15,7 +14,9 @@ use game_system::{
             single_line_label::SingleLineLabel,
             sizing::{CustomSizing, NestedContentSizing},
             tiled_image_display::TiledImageDisplay,
-            update_gui, HandlerReturnValue, Widget,
+            update_gui,
+            vertical_layout::VerticalLayout,
+            FrameTransiency, HandlerReturnValue, Widget,
         },
     },
 };
@@ -50,9 +51,9 @@ fn do_example<T: game_system::core::System>(
         .join("ui_test_sound.mp3");
 
     let mut button = Button::new(
-        Box::new(|_sys: &mut T| -> Result<bool, String> {
+        Box::new(|_sys: &mut T| -> Result<FrameTransiency, String> {
             button_release.set(true);
-            Ok(false)
+            Ok(Default::default())
         }),
         Box::new(idle),
         Box::new(hovered),
@@ -183,18 +184,17 @@ fn do_example<T: game_system::core::System>(
             }
         }
 
-        system.clear(Color {
-            r: 0,
-            g: 0,
-            b: 0,
-            a: 0xFF,
-        })?;
-        background.draw(system)?;
-        system.present()?;
-        Ok(match r {
-            true => HandlerReturnValue::NextFrame,
-            false => HandlerReturnValue::DelayNextFrame,
-        })
+        if !matches!(r, FrameTransiency::NextFrameNow) {
+            system.clear(Color {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0xFF,
+            })?;
+            background.draw(system)?;
+            system.present()?;
+        }
+        Ok(HandlerReturnValue::Some(r))
     })?;
     Ok(())
 }

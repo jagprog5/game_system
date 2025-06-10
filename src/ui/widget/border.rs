@@ -5,9 +5,12 @@ use crate::{
         texture_rect::{TextureDestination, TextureRect, TextureRotation},
         PathLike, TextureHandle,
     },
-    ui::util::{
-        length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
-        rect::FRect,
+    ui::{
+        util::{
+            length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
+            rect::FRect,
+        },
+        widget::FrameTransiency,
     },
 };
 
@@ -205,7 +208,7 @@ impl<'b, T: crate::core::System> Widget<T> for Border<'b, T> {
         &mut self,
         mut event: WidgetUpdateEvent,
         sys_interface: &mut T,
-    ) -> Result<bool, String> {
+    ) -> Result<FrameTransiency, String> {
         self.border_draw_pos = event.position;
         let style_width = self.effective_border_width() as f32;
         let position_for_child = crate::ui::util::rect::FRect {

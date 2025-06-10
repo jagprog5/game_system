@@ -6,10 +6,13 @@ use crate::{
         texture_rect::{TextureRect, TextureSource},
         NonEmptyStr, TextureHandle,
     },
-    ui::util::{
-        length::{MaxLenFailPolicy, MinLenFailPolicy, PreferredPortion},
-        rect::rect_len_round,
-        rust::CellRefOrCell,
+    ui::{
+        util::{
+            length::{MaxLenFailPolicy, MinLenFailPolicy, PreferredPortion},
+            rect::rect_len_round,
+            rust::CellRefOrCell,
+        },
+        widget::FrameTransiency,
     },
 };
 
@@ -143,9 +146,13 @@ impl<'state, T: crate::core::System> Widget<T> for MultiLineLabel<'state> {
         }
     }
 
-    fn update(&mut self, event: WidgetUpdateEvent, _sys_interface: &mut T) -> Result<bool, String> {
+    fn update(
+        &mut self,
+        event: WidgetUpdateEvent,
+        _sys_interface: &mut T,
+    ) -> Result<FrameTransiency, String> {
         self.draw_pos = event.position;
-        Ok(false)
+        Ok(Default::default())
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {

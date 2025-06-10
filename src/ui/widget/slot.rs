@@ -1,6 +1,6 @@
 use crate::ui::{
     util::length::{MaxLen, MaxLenFailPolicy, MinLen, MinLenFailPolicy, PreferredPortion},
-    widget::Widget,
+    widget::{FrameTransiency, Widget},
 };
 
 /// might contain something and inherit the contained's sizing. if it does not,
@@ -100,11 +100,11 @@ impl<'b, T: crate::core::System + 'b> Widget<T> for Slot<'b, T> {
         &mut self,
         event: super::WidgetUpdateEvent,
         sys_interface: &mut T,
-    ) -> Result<bool, String> {
+    ) -> Result<FrameTransiency, String> {
         self.contained
             .as_mut()
             .map(|c| c.update(event, sys_interface))
-            .unwrap_or(Ok(false))
+            .unwrap_or(Ok(Default::default()))
     }
 
     fn draw(&self, sys_interface: &mut T) -> Result<(), String> {

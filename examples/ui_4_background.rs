@@ -10,7 +10,7 @@ use game_system::{
             gui_loop,
             sizing::{CustomSizing, NestedContentSizing},
             tiled_image_display::TiledImageDisplay,
-            update_gui, HandlerReturnValue, Widget,
+            update_gui, FrameTransiency, HandlerReturnValue, Widget,
         },
     },
 };
@@ -134,18 +134,17 @@ fn do_example<T: game_system::core::System>(
             }
         }
 
-        system.clear(Color {
-            r: 0,
-            g: 0,
-            b: 0,
-            a: 0xFF,
-        })?;
-        background.draw(system)?;
-        system.present()?;
-        Ok(match r {
-            true => HandlerReturnValue::NextFrame,
-            false => HandlerReturnValue::DelayNextFrame,
-        })
+        if !matches!(r, FrameTransiency::NextFrameNow) {
+            system.clear(Color {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0xFF,
+            })?;
+            background.draw(system)?;
+            system.present()?;
+        }
+        Ok(HandlerReturnValue::Some(r))
     })?;
     Ok(())
 }
