@@ -1,17 +1,8 @@
 use std::num::NonZeroU32;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[repr(C)] // packed not necessary - has no padding
 pub struct Color {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-    pub a: u8,
-}
-
-/// Color, but guaranteed to be aligned and packed
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-#[repr(C, packed)]
-pub struct ColorPacked {
     pub r: u8,
     pub g: u8,
     pub b: u8,
@@ -23,12 +14,12 @@ pub struct Surface {
     /// must be appropriate for the size of the data
     pub width: NonZeroU32,
     /// must not be empty
-    pub data: Vec<ColorPacked>,
+    pub data: Vec<Color>,
 }
 
 impl Surface {
     pub fn as_mut_bytes(&mut self) -> &mut [u8] {
-        let byte_len = self.data.len() * std::mem::size_of::<ColorPacked>();
+        let byte_len = self.data.len() * std::mem::size_of::<Color>();
         let byte_slice: &mut [u8] =
             unsafe { std::slice::from_raw_parts_mut(self.data.as_mut_ptr() as *mut u8, byte_len) };
         byte_slice

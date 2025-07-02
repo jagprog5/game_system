@@ -33,7 +33,7 @@ use sdl2::{
 use texture_key::TextureKey;
 
 use crate::core::{
-    color::{Color, ColorPacked, Surface},
+    color::{Color, Surface},
     event::{ascii_more_to_upper, MouseWheelEvent},
     texture_rect::{TextureDestinationF, TextureRect, TextureSource, TextureSourceF},
     BytesLike, Event, NonEmptyStr, PathLike, System, TextureDestination,
@@ -300,9 +300,9 @@ impl<'sys> crate::core::TextureHandle<'sys> for TextureHandle<'sys> {
 
                     let pitch_bytes = w * pixels::PixelFormatEnum::RGBA32.byte_size_per_pixel(); // calculated pitch
                     let size_bytes = pixels::PixelFormatEnum::RGBA32.byte_size_of_pixels(w * h);
-                    let size_elements = size_bytes / std::mem::size_of::<ColorPacked>();
+                    let size_elements = size_bytes / std::mem::size_of::<Color>();
 
-                    let mut pixels = Vec::<ColorPacked>::with_capacity(size_elements);
+                    let mut pixels = Vec::<Color>::with_capacity(size_elements);
 
                     let ret = unsafe {
                         sdl2::sys::SDL_RenderReadPixels(
@@ -649,7 +649,7 @@ impl System for RustSDL2System {
             surface.as_mut_bytes(),
             width,
             height,
-            width * std::mem::size_of::<ColorPacked>() as u32,
+            width * std::mem::size_of::<Color>() as u32,
             sdl2::pixels::PixelFormatEnum::RGBA32,
         )?;
 
