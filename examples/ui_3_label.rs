@@ -90,7 +90,7 @@ fn do_example<T: game_system::core::System>(
         for e in events.iter_mut().filter(|e| e.is_some()) {
             match e.unwrap() {
                 game_system::core::event::Event::Window(window) => {
-                    top_label_text.set(format!("{}x{}", window.width.get(), window.height.get()));
+                    top_label_text.set(format!("{}x{}", window.width, window.height));
                 }
                 _ => {}
             }

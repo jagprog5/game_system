@@ -1,10 +1,8 @@
-use std::num::NonZeroU32;
-
 /// window size change. indicates the new size
 #[derive(Debug, Clone, Copy)]
 pub struct Window {
-    pub width: NonZeroU32,
-    pub height: NonZeroU32,
+    pub width: u32,
+    pub height: u32,
 }
 
 /// state of the primary (left) mouse button

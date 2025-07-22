@@ -987,20 +987,14 @@ fn translate_sdl_event(i: sdl2::event::Event) -> Option<Event> {
         sdl2::event::Event::Quit { .. } => return Some(Event::Quit),
         sdl2::event::Event::Window { win_event, .. } => match win_event {
             sdl2::event::WindowEvent::SizeChanged(w, h) => {
-                let i32_to_nonzero_u32 = |i: i32| -> Option<NonZeroU32> {
-                    NonZeroU32::new(match i.try_into() {
-                        Ok(v) => v,
-                        Err(_) => return None,
-                    })
-                };
                 return Some(Event::Window(crate::core::event::Window {
-                    width: match i32_to_nonzero_u32(w) {
-                        Some(v) => v,
-                        None => return None,
+                    width: match w.try_into() {
+                        Ok(v) => v,
+                        _ => return None,
                     },
-                    height: match i32_to_nonzero_u32(h) {
-                        Some(v) => v,
-                        None => return None,
+                    height: match h.try_into() {
+                        Ok(v) => v,
+                        _ => return None,
                     },
                 }));
             }
